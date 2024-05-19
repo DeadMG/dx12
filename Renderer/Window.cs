@@ -3,11 +3,17 @@ using System.Runtime.InteropServices;
 
 namespace Renderer
 {
+    public interface IWindowListener
+    {
+        public void OnResize(WindowSize size);
+    }
+
     public class Window
     {
         private readonly CancellationTokenSource cts = new CancellationTokenSource();
         private readonly TaskCompletionSource<int> closedTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource<IntPtr> hwndTcs = new TaskCompletionSource<IntPtr>(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<WindowSize> sizeTcs = new TaskCompletionSource<WindowSize>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public Window()
         {
@@ -25,6 +31,8 @@ namespace Renderer
             }) { IsBackground = true }.Start();
         }
 
+        public IWindowListener? Listener { get; set; }
+
         private void WindowThread()
         {
             WndProc windowCallback = this.WindowCallback;
@@ -35,7 +43,8 @@ namespace Renderer
                 lpfnWndProc = windowCallback,
                 lpszClassName = "WindowClass",
                 style = CS_HREDRAW | CS_VREDRAW,
-                hInstance = Marshal.GetHINSTANCE(GetType().Module)
+                hInstance = Marshal.GetHINSTANCE(GetType().Module),
+                hCursor = LoadCursorW(IntPtr.Zero, new IntPtr(32512)) // IDC_ARROW
             };
 
             if (RegisterClassExW(ref windowClass) == 0)
@@ -43,7 +52,7 @@ namespace Renderer
                 throw new Win32Exception(Marshal.GetLastWin32Error());
             }
 
-            var hWnd = CreateWindowExW(0, windowClass.lpszClassName, "WindowName", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, IntPtr.Zero, IntPtr.Zero, windowClass.hInstance, IntPtr.Zero);
+            var hWnd = CreateWindowExW(0, windowClass.lpszClassName, "Dark Skies", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, IntPtr.Zero, IntPtr.Zero, windowClass.hInstance, IntPtr.Zero);
             if (hWnd == IntPtr.Zero)
             {
                 throw new Win32Exception(Marshal.GetLastWin32Error());
@@ -70,11 +79,26 @@ namespace Renderer
             {
                 cts.Cancel();
             }
+            if (msg == WM_SIZE)
+            {
+                if (GetClientRect(hWnd, out var rect))
+                {
+                    int width = rect.right - rect.left;
+                    int height = rect.bottom - rect.top;
+
+                    var newSize = new WindowSize { Width = width, Height = height };
+
+                    sizeTcs.TrySetResult(newSize);
+                    Listener?.OnResize(newSize);
+                }
+            }
+
             return DefWindowProc(hWnd, msg, wParam, lParam);
         }
 
         public Task Closed => closedTcs.Task;
         public Task<IntPtr> HWND => hwndTcs.Task;
+        public Task<WindowSize> InitialSize => sizeTcs.Task;
 
         const int SW_SHOWDEFAULT = 10;
         const int CS_HREDRAW = 2;
@@ -88,6 +112,22 @@ namespace Renderer
         const int WS_OVERLAPPEDWINDOW = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
         const int CW_USEDEFAULT = int.MinValue;
         const int WM_DESTROY = 0x2;
+        const int WM_SIZE = 0x5;
+
+        struct RECT
+        {
+            public int left;
+            public int top;
+            public int right;
+            public int bottom;
+        }
+
+        [DllImport("user32.dll")]
+        static extern IntPtr LoadCursorW(IntPtr hInstance, IntPtr cursorNameOrOrdinal);
+
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool GetClientRect(IntPtr hWnd, out RECT rect);
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
@@ -96,8 +136,8 @@ namespace Renderer
         [DllImport("user32.dll", SetLastError = true)]
         static extern IntPtr CreateWindowExW(
             int dwExStyle,
-            [MarshalAs(UnmanagedType.LPTStr)] string lpClassName,
-            [MarshalAs(UnmanagedType.LPTStr)] string lpWindowName,
+            [MarshalAs(UnmanagedType.LPWStr)] string lpClassName,
+            [MarshalAs(UnmanagedType.LPWStr)] string lpWindowName,
             int dwStyle,
             int x,
             int y,

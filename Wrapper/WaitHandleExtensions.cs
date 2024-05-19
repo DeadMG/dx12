@@ -1,4 +1,4 @@
-﻿namespace Renderer
+﻿namespace Wrapper
 {
     public static class WaitHandleExtensions
     {
