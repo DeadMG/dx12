@@ -14,30 +14,10 @@ namespace Test
         {
             await new Initialiser().Run();
 
-            var queue = new InputQueue();
-            var window = new Window() { Listener = new QueueWindowListener(queue) };
-            var hwnd = await window.HWND;
-            var size = await window.InitialSize;
+            var simulation = new Game();
+            var player = simulation.AddPlayer(simulation.AddForce());
+            var controlScheme = new StandardControlScheme(player, 1, 1);
 
-            using (var renderer = new Core(hwnd, size.Width, size.Height))
-            using (var cts = new CancellationTokenSource()) 
-            {
-                var renderLoop = CoreLoop(renderer, queue, cts.Token);
-
-                await window.Closed;
-                cts.Cancel();
-                await renderLoop;
-            }
-        }
-
-        static async Task CoreLoop(Core core, InputQueue queue, CancellationToken token)
-        {
-            var frameCount = 0;
-            var sw = new Stopwatch();
-            sw.Start();
-
-            var alliance = new Force();
-            var player = new Player { Force = alliance };
             var print = new Blueprint
             {
                 Name = "Hypercraft",
@@ -60,7 +40,7 @@ namespace Test
                         new Vertex { Position = new Vector3(-3.2f, -1.0f, 11.0f), Colour = new Colour { R = 0, G = 1, B = 0 }, },
                         new Vertex { Position = new Vector3(-2.0f, 1.0f, 2.0f), Colour = new Colour { R = 1, G = 0, B = 0 }, },
                     ],
-                    Indices = 
+                    Indices =
                     [
                         0, 1, 2,
                         2, 1, 3,
@@ -72,44 +52,86 @@ namespace Test
                 }
             };
 
-            var scene = new World
+            var world = simulation.AddWorld();
+            world.Units.Add(new Unit
             {
-                CameraOrientation = new Quaternion(),
-                CameraPosition = new Vector3(),
-                Units =
-                {
-                    new Unit
-                    {
-                        Orientation = new Quaternion(),
-                        Position = new Vector3(0, 0f, -50f),
-                        Blueprint = print,
-                        Player = player,
-                    }
-                }
-            };
+                Orientation = new Quaternion(),
+                Position = new Vector3(8, 0, 8),
+                Blueprint = print,
+                Player = player,
+            });
+            world.Units.Add(new Unit
+            {
+                Orientation = new Quaternion(),
+                Position = new Vector3(-8, 0, 8),
+                Blueprint = print,
+                Player = player,
+            });
+            world.Units.Add(new Unit
+            {
+                Orientation = new Quaternion(),
+                Position = new Vector3(8, 0, -8),
+                Blueprint = print,
+                Player = player,
+            });
+            world.Units.Add(new Unit
+            {
+                Orientation = new Quaternion(),
+                Position = new Vector3(-8, 0, -8),
+                Blueprint = print,
+                Player = player,
+            });
 
-            await core.Load([print]);
+            player.CameraFor(world).Position = new Vector3(0, 30, 0);
+            player.CameraFor(world).Orientation = Quaternion.CreateFromAxisAngle(new Vector3(1, 0, 0), 90f.ToRadians());
+
+            var queue = new ResizeTracker();
+            var window = new Window() { Listener = new WindowListener(queue, controlScheme) };
+
+            var hwnd = await window.HWND;
+            var size = await window.InitialSize;
+
+            controlScheme.OnResize(size.Width, size.Height);
+
+            using (var renderer = new Core(hwnd, size.Width, size.Height))
+            using (var cts = new CancellationTokenSource())
+            {
+                await renderer.Load([print]);
+
+                var renderLoop = CoreLoop(renderer, queue, simulation, player, controlScheme, cts.Token);
+
+                await window.Closed;
+                cts.Cancel();
+                await renderLoop;
+            }
+        }
+
+        static async Task CoreLoop(Core core, ResizeTracker queue, Game simulation, Player player, IControlScheme controlScheme, CancellationToken token)
+        {
+            var frameCount = 0;
+
+            var simWatch = new SimWatch();
+
+            var renderWatch = new Stopwatch();
+            renderWatch.Start();
 
             while (!token.IsCancellationRequested)
             {
                 if (queue.DidResize(out var resize))
                 {
                     core.Resize(resize.Width, resize.Height);
+                    controlScheme.OnResize(resize.Width, resize.Height);
                 }
 
-                scene = await Update(scene, sw.Elapsed);
-                await core.Render(scene);
+                controlScheme.Apply(simulation);
+                var renderTask = core.Render(simulation, player);
+                await simulation.Update(simWatch.MarkTime());
+                await renderTask;
                 frameCount = frameCount + 1;
             }
 
-            Debug.Write($"FPS: {frameCount / sw.Elapsed.TotalSeconds}\n");
+            Debug.Write($"FPS: {frameCount / renderWatch.Elapsed.TotalSeconds}\n");
             new Debugging().ReportLiveObjects();
-        }
-
-        static async Task<World> Update(World scene, TimeSpan time)
-        {
-            scene.Units[0].Orientation = Quaternion.CreateFromAxisAngle(new Vector3(0, 1, 0), (float)time.TotalSeconds * (float)Math.PI);
-            return scene;
         }
     }
 }

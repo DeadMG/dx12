@@ -1,45 +1,44 @@
 ﻿using Data;
+using Wrapper;
 using Wrapper.Direct3D;
 
 namespace Renderer
 {
     public class ResourceCache : IDisposable
     {
-        private readonly CopyCommandQueue queue;
+        private readonly Device device;
+        private readonly CopyCommandList list;
         private readonly Dictionary<Blueprint, BlueprintData> cache = new Dictionary<Blueprint, BlueprintData>();
 
-        public ResourceCache(Device device)
+        public ResourceCache(Device device, CopyCommandList list)
         {
-            queue = device.CreateCopyCommandQueue();
+            this.device = device;
+            this.list = list;
         }
 
-        public void Load(Blueprint[] blueprints)
+        public FenceWait Load(Blueprint[] blueprints)
         {
-            var list = queue.CreateCommandList();
-
             foreach (var blueprint in blueprints)
             {
-                var vertexBuffer = list.CreateResource(blueprint.Mesh.Vertices);
-                var indexBuffer = list.CreateResource(blueprint.Mesh.Indices);
+                var vertexBuffer = device.CreateStaticBuffer(blueprint.Mesh.Vertices.SizeOf());
+                var indexBuffer = device.CreateStaticBuffer(blueprint.Mesh.Indices.SizeOf());
 
                 cache[blueprint] = new BlueprintData
                 {
                     VertexBuffer = vertexBuffer,
                     IndexBuffer = indexBuffer
                 };
+
+                list.UploadData(vertexBuffer, blueprint.Mesh.Vertices);
+                list.UploadData(indexBuffer, blueprint.Mesh.Indices);
             }
 
-            list.Execute();
+            return list.Execute();
         }
 
         public BlueprintData For(Blueprint blueprint)
         {
             return cache[blueprint];
-        }
-
-        public FenceWait Flush()
-        {
-            return queue.Flush();
         }
 
         public void Dispose()
@@ -49,8 +48,6 @@ namespace Renderer
                 data.VertexBuffer.Dispose();
                 data.IndexBuffer.Dispose();
             }
-
-            queue.Dispose();
         }
 
         public class BlueprintData

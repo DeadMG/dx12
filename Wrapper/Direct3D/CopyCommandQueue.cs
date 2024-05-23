@@ -2,7 +2,7 @@
 {
     public class CopyCommandQueue : CommandQueue
     {
-        internal CopyCommandQueue(SharpDX.Direct3D12.Device device, SharpDX.Direct3D12.CommandQueue queue) : base(device, queue)
+        internal CopyCommandQueue(Device device, SharpDX.Direct3D12.CommandQueue queue) : base(device, queue)
         {
         }
 

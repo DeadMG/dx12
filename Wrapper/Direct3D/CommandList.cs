@@ -2,7 +2,8 @@
 {
     public class CommandList
     {
-        private readonly CommandQueue queue;
+        protected readonly CommandQueue queue;
+
         private SharpDX.Direct3D12.GraphicsCommandList? commandList;
         private SharpDX.Direct3D12.CommandAllocator? commandAllocator;
 

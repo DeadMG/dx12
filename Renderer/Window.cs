@@ -6,6 +6,7 @@ namespace Renderer
     public interface IWindowListener
     {
         public void OnResize(WindowSize size);
+        public void OnMouseWheel(float amount, int x, int y);
     }
 
     public class Window
@@ -93,6 +94,22 @@ namespace Renderer
                 }
             }
 
+            if (msg == WM_MOUSEWHEEL)
+            {
+                var rotation = unchecked((short)((wParam.ToInt64() >> 16) & 0xFFFF));
+                var location = new POINT
+                {
+                    x = lParam.ToInt32() & 0xFFFF,
+                    y = (lParam.ToInt32() >> 16) & 0xFFFF
+                };
+
+                var rotations = (float)rotation / WHEEL_DELTA;
+                if (ScreenToClient(hWnd, ref location))
+                {
+                    Listener?.OnMouseWheel(rotations, location.x, location.y);
+                }
+            }
+
             return DefWindowProc(hWnd, msg, wParam, lParam);
         }
 
@@ -113,6 +130,8 @@ namespace Renderer
         const int CW_USEDEFAULT = int.MinValue;
         const int WM_DESTROY = 0x2;
         const int WM_SIZE = 0x5;
+        const int WM_MOUSEWHEEL = 0x20A;
+        const int WHEEL_DELTA = 120;
 
         struct RECT
         {
@@ -174,17 +193,23 @@ namespace Renderer
 
         delegate IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
-        [DllImport("user32.dll")]
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool GetMessageW(ref MSG lpMsg, IntPtr hWnd, uint min, uint max);
 
-        [DllImport("user32.dll")]
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         static extern bool TranslateMessage([In] ref MSG lpMsg);
 
-        [DllImport("user32.dll")]
+        [DllImport("user32.dll", SetLastError = true)]
         static extern IntPtr DispatchMessage([In] ref MSG lpmsg);
 
-        [DllImport("user32.dll")]
+        [DllImport("user32.dll", SetLastError = true)]
         static extern IntPtr DefWindowProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        static extern bool ScreenToClient(IntPtr hWnd, ref POINT lpPoint);
 
         struct MSG
         {
@@ -198,8 +223,8 @@ namespace Renderer
 
         struct POINT
         {
-            int x;
-            int y;
+            public int x;
+            public int y;
         }
     }
 }

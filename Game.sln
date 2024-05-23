@@ -11,7 +11,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Simulation", "Simulation\Si
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Data", "Data\Data.csproj", "{E41EF3FE-C1B9-48AC-926A-4F9B797F3550}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wrapper", "Wrapper\Wrapper.csproj", "{A081682A-888B-404F-AA34-2726FE55EE88}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Wrapper", "Wrapper\Wrapper.csproj", "{A081682A-888B-404F-AA34-2726FE55EE88}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimulationTests", "SimulationTests\SimulationTests.csproj", "{AB6AD533-8F23-4660-8FF4-F384FE44A401}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,6 +41,10 @@ Global
 		{A081682A-888B-404F-AA34-2726FE55EE88}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A081682A-888B-404F-AA34-2726FE55EE88}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A081682A-888B-404F-AA34-2726FE55EE88}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AB6AD533-8F23-4660-8FF4-F384FE44A401}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AB6AD533-8F23-4660-8FF4-F384FE44A401}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AB6AD533-8F23-4660-8FF4-F384FE44A401}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AB6AD533-8F23-4660-8FF4-F384FE44A401}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

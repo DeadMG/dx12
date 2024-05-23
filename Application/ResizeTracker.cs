@@ -2,7 +2,7 @@
 
 namespace Application
 {
-    public class InputQueue
+    public class ResizeTracker
     {
         // For resizes, track only latest.
         private WindowSize? resizeEvent;

@@ -2,21 +2,21 @@
 
 namespace Wrapper.Direct3D
 {
-    public class DirectCommandQueue : CommandQueue
+    public class DirectCommandQueue : CopyCommandQueue
     {
         private readonly SharpDX.DXGI.Factory5 factory;
         private readonly bool allowTearing;
 
-        internal DirectCommandQueue(SharpDX.DXGI.Factory5 factory, SharpDX.Direct3D12.Device device, SharpDX.Direct3D12.CommandQueue queue)
+        internal DirectCommandQueue(SharpDX.DXGI.Factory5 factory, Device device, SharpDX.Direct3D12.CommandQueue queue)
             : base(device, queue)
         {            
             this.factory = factory;
             allowTearing = AllowTearing();
         }
 
-        public DirectCommandList CreateCommandList()
+        public new DirectCommandList CreateCommandList()
         {
-            return new DirectCommandList(this);
+            return new DirectCommandList(device, this);
         }
 
         public SwapChain CreateSwapChain(IntPtr hWnd, int backBuffers, int width, int height)
@@ -36,7 +36,7 @@ namespace Wrapper.Direct3D
                 Flags = allowTearing ? SharpDX.DXGI.SwapChainFlags.AllowTearing : 0,
             };
 
-            return new SwapChain(device, new SharpDX.DXGI.SwapChain1(factory, queue, hWnd, ref description).QueryInterface<SharpDX.DXGI.SwapChain3>(), allowTearing);
+            return new SwapChain(device.Native, new SharpDX.DXGI.SwapChain1(factory, queue, hWnd, ref description).QueryInterface<SharpDX.DXGI.SwapChain3>(), allowTearing);
         }
 
         private unsafe bool AllowTearing()

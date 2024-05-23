@@ -1,4 +1,4 @@
-﻿namespace Renderer
+﻿namespace Data
 {
     public static class NumericExtensions
     {

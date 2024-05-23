@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace Wrapper.Direct3D
 {
@@ -30,9 +31,11 @@ namespace Wrapper.Direct3D
             });
         }
 
+        internal SharpDX.Direct3D12.Device Native => device;
+
         public DirectCommandQueue CreateDirectCommandQueue()
         {
-            return new DirectCommandQueue(factory, device, device.CreateCommandQueue(new SharpDX.Direct3D12.CommandQueueDescription
+            return new DirectCommandQueue(factory, this, device.CreateCommandQueue(new SharpDX.Direct3D12.CommandQueueDescription
             {
                 Flags = SharpDX.Direct3D12.CommandQueueFlags.None,
                 NodeMask = 0,
@@ -43,7 +46,7 @@ namespace Wrapper.Direct3D
         
         public CopyCommandQueue CreateCopyCommandQueue()
         {
-            return new CopyCommandQueue(device, device.CreateCommandQueue(new SharpDX.Direct3D12.CommandQueueDescription
+            return new CopyCommandQueue(this, device.CreateCommandQueue(new SharpDX.Direct3D12.CommandQueueDescription
             {
                 Flags = SharpDX.Direct3D12.CommandQueueFlags.None,
                 NodeMask = 0,
@@ -69,6 +72,22 @@ namespace Wrapper.Direct3D
             return new DepthBuffer(device, depthStencilPool.GetSlot(), width, height);
         }
 
+        public Resource CreateStaticBuffer(int size)
+        {
+            return new Resource(device.CreateCommittedResource(new SharpDX.Direct3D12.HeapProperties(SharpDX.Direct3D12.HeapType.Default),
+                SharpDX.Direct3D12.HeapFlags.None,
+                SharpDX.Direct3D12.ResourceDescription.Buffer(new SharpDX.Direct3D12.ResourceAllocationInformation { Alignment = 65536, SizeInBytes = size }),
+                SharpDX.Direct3D12.ResourceStates.Common));
+        }
+
+        public UploadResource CreateUploadBuffer(int size)
+        {
+            return new UploadResource(device.CreateCommittedResource(new SharpDX.Direct3D12.HeapProperties(SharpDX.Direct3D12.HeapType.Upload),
+                SharpDX.Direct3D12.HeapFlags.None,
+                SharpDX.Direct3D12.ResourceDescription.Buffer(new SharpDX.Direct3D12.ResourceAllocationInformation { Alignment = 65536, SizeInBytes = size }),
+                SharpDX.Direct3D12.ResourceStates.GenericRead));
+        }
+
         public Pipeline CreatePipeline(PipelineDescriptor descriptor)
         {
             var flags = SharpDX.Direct3D12.RootSignatureFlags.AllowInputAssemblerInputLayout
@@ -92,8 +111,11 @@ namespace Wrapper.Direct3D
                 InputLayout = new SharpDX.Direct3D12.InputLayoutDescription([
                     new SharpDX.Direct3D12.InputElement("POSITION", 0, SharpDX.DXGI.Format.R32G32B32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 0, SharpDX.Direct3D12.InputClassification.PerVertexData, 0),
                     new SharpDX.Direct3D12.InputElement("COLOR", 0, SharpDX.DXGI.Format.R32G32B32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 0, SharpDX.Direct3D12.InputClassification.PerVertexData, 0),
+                    new SharpDX.Direct3D12.InputElement("INSTANCE_TRANSFORM", 0, SharpDX.DXGI.Format.R32G32B32A32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 1, SharpDX.Direct3D12.InputClassification.PerInstanceData, 1),
+                    new SharpDX.Direct3D12.InputElement("INSTANCE_TRANSFORM", 1, SharpDX.DXGI.Format.R32G32B32A32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 1, SharpDX.Direct3D12.InputClassification.PerInstanceData, 1),
+                    new SharpDX.Direct3D12.InputElement("INSTANCE_TRANSFORM", 2, SharpDX.DXGI.Format.R32G32B32A32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 1, SharpDX.Direct3D12.InputClassification.PerInstanceData, 1),
+                    new SharpDX.Direct3D12.InputElement("INSTANCE_TRANSFORM", 3, SharpDX.DXGI.Format.R32G32B32A32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 1, SharpDX.Direct3D12.InputClassification.PerInstanceData, 1),
                 ]),
-                SampleMask = 1,
                 DepthStencilState = new SharpDX.Direct3D12.DepthStencilStateDescription
                 {
                     DepthComparison = SharpDX.Direct3D12.Comparison.Less,
@@ -101,19 +123,28 @@ namespace Wrapper.Direct3D
                     DepthWriteMask = SharpDX.Direct3D12.DepthWriteMask.All,
                     IsStencilEnabled = false,
                 },
-                StreamOutput = new SharpDX.Direct3D12.StreamOutputDescription(),
+                SampleMask = -1,
+                StreamOutput = new SharpDX.Direct3D12.StreamOutputDescription { Elements = new SharpDX.Direct3D12.StreamOutputElement[0], Strides = new int[0] },
                 RasterizerState = new SharpDX.Direct3D12.RasterizerStateDescription
                 {
                     FillMode = SharpDX.Direct3D12.FillMode.Solid,
                     CullMode = SharpDX.Direct3D12.CullMode.None,
                     ForcedSampleCount = 0,
+                    IsDepthClipEnabled = true,
+                },
+                BlendState = new SharpDX.Direct3D12.BlendStateDescription
+                {
+                    AlphaToCoverageEnable = false,
+                    IndependentBlendEnable = false,
                 },
                 SampleDescription = new SharpDX.DXGI.SampleDescription
                 {
                     Count = 1,
                     Quality = 0
-                }
+                },
             };
+
+            desc.BlendState.RenderTarget[0].RenderTargetWriteMask = SharpDX.Direct3D12.ColorWriteMaskFlags.All;
 
             for (int i = 0; i < descriptor.RenderTargetFormats.Length; ++i)
             {

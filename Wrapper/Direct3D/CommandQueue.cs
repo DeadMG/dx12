@@ -7,17 +7,22 @@
         private readonly object queueLock = new object();
 
         protected readonly SharpDX.Direct3D12.Fence fence;
-        protected readonly SharpDX.Direct3D12.Device device;
+        protected readonly Device device;
         protected readonly SharpDX.Direct3D12.CommandQueue queue;
 
         private long fenceValue = 0;
 
-        internal CommandQueue(SharpDX.Direct3D12.Device device, SharpDX.Direct3D12.CommandQueue queue)
+        internal CommandQueue(Device device, SharpDX.Direct3D12.CommandQueue queue)
         {
             this.device = device;
             this.queue = queue;
 
-            this.fence = device.CreateFence(0, SharpDX.Direct3D12.FenceFlags.None);
+            this.fence = device.Native.CreateFence(0, SharpDX.Direct3D12.FenceFlags.None);
+        }
+
+        public FenceWait Wait()
+        {
+            return new FenceWait(fence, fenceValue + 1);
         }
 
         public FenceWait Flush()
@@ -33,7 +38,7 @@
 
                 if (!commandLists.TryDequeue(out var commandList))
                 {
-                    commandList = device.CreateCommandList(queue.Description.Type, allocator, null);
+                    commandList = device.Native.CreateCommandList(queue.Description.Type, allocator, null);
                 }
                 else
                 {
@@ -85,7 +90,7 @@
                 }
             }
 
-            return device.CreateCommandAllocator(queue.Description.Type);
+            return device.Native.CreateCommandAllocator(queue.Description.Type);
         }
 
         public void Dispose()

@@ -10,12 +10,12 @@ namespace Renderer
         {
             SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
-            //var result = LoadLibraryW("C:\\Program Files\\Microsoft PIX\\2405.15.002-OneBranch_release\\WinPixGpuCapturer.dll");
-            //if (result == IntPtr.Zero)
-            //{
-            //    throw new Win32Exception(Marshal.GetLastWin32Error());
-            //}
-            //LoadLibraryW("C:\\Program Files\\Microsoft PIX\\2405.15.002-OneBranch_release\\WinPixTimingCapturer.dll");
+            var result = LoadLibraryW("C:\\Program Files\\Microsoft PIX\\2405.15.002-OneBranch_release\\WinPixGpuCapturer.dll");
+            if (result == IntPtr.Zero)
+            {
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            }
+            LoadLibraryW("C:\\Program Files\\Microsoft PIX\\2405.15.002-OneBranch_release\\WinPixTimingCapturer.dll");
 
             using (var debug = DebugInterface.Get())
             {

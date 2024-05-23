@@ -3,9 +3,9 @@ using System.Runtime.InteropServices;
 
 namespace Wrapper.Direct3D
 {
-    public class DirectCommandList : CommandList
+    public class DirectCommandList : CopyCommandList
     {
-        internal DirectCommandList(CommandQueue queue) : base(queue)
+        internal DirectCommandList(Device device, CommandQueue queue) : base(device, queue)
         {
         }
 
