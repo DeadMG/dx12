@@ -2,23 +2,23 @@
 {
     public class Adapter : IDisposable
     {
+        private readonly DisposeTracker disposeTracker = new DisposeTracker();
+
         private readonly SharpDX.DXGI.Factory5 factory;
         private readonly SharpDX.DXGI.Adapter1 adapter;
-        private readonly SharpDX.DXGI.AdapterDescription1 description;
 
         internal Adapter(SharpDX.DXGI.Factory5 factory, SharpDX.DXGI.Adapter1 adapter)
         {
             this.factory = factory;
-            this.description = adapter.Description1;
-            this.adapter = adapter;
+            this.adapter = disposeTracker.Track(adapter);
         }
 
-        public bool IsSoftware => description.Flags.HasFlag(SharpDX.DXGI.AdapterFlags.Software);
-        public long DedicatedVideoMemory => ((IntPtr)description.DedicatedVideoMemory).ToInt64();
+        public bool IsSoftware => adapter.Description1.Flags.HasFlag(SharpDX.DXGI.AdapterFlags.Software);
+        public long DedicatedVideoMemory => ((IntPtr)adapter.Description1.DedicatedVideoMemory).ToInt64();
 
         public void Dispose()
         {
-            adapter.Dispose();
+            disposeTracker.Dispose();
         }
 
         public Direct3D.Device CreateDevice()

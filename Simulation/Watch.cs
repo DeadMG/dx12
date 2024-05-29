@@ -2,12 +2,12 @@
 
 namespace Simulation
 {
-    public class SimWatch
+    public class Watch
     {
         private readonly Stopwatch watch = new Stopwatch();
         private TimeSpan? markTime;
 
-        public SimWatch()
+        public Watch()
         {
             watch.Start();
         }

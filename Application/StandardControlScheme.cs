@@ -1,6 +1,9 @@
-﻿using Renderer;
+﻿using Data;
+using Renderer;
+using SharpDX;
 using Simulation;
 using System.Collections.Concurrent;
+using System.Drawing;
 using System.Numerics;
 
 namespace Application
@@ -8,62 +11,178 @@ namespace Application
     public class StandardControlScheme : IControlScheme
     {
         private readonly ConcurrentQueue<MouseWheelEvent> mouseWheelEvents = new ConcurrentQueue<MouseWheelEvent>();
+        private readonly ConcurrentDictionary<Key, bool> keyState = new ConcurrentDictionary<Key, bool>();
+        private readonly Latest<SelectionEvent> selectionEvent = new Latest<SelectionEvent>();
+        private readonly Latest<ScreenPosition> rightMouseDownEvent = new Latest<ScreenPosition>();
+        private readonly Latest<ScreenPosition> leftMouseDownEvent = new Latest<ScreenPosition>();
+        private readonly Latest<ScreenPosition> mouseMoveEvent = new Latest<ScreenPosition>();
+        private readonly Watch inputWatch = new Watch();
         private readonly Player player;
-        private volatile WindowSize viewSize;
+        private readonly Game game;
 
-        public StandardControlScheme(Player player, int width, int height)
+        private volatile ScreenSize viewSize;
+
+        public StandardControlScheme(Player player, Game game, int width, int height)
         {
             this.player = player;
-            viewSize = new WindowSize { Height = height, Width = width };
+            this.game = game;
+            viewSize = new ScreenSize { Height = height, Width = width };
         }
 
-        public float CameraSensitivity { get; set; } = 1 / (float)10;
+        public float ZoomCameraSensitivity { get; set; } = 1 / (float)10;
+        public float PanCameraSensitivity { get; set; } = 1;
 
-        public void Apply(Game g)
+        public void Apply()
         {
             var size = viewSize; // Atomic read
+            var world = player.ViewingWorld(game);
+            var camera = player.CameraFor(world);
+            var time = inputWatch.MarkTime();
 
             while (mouseWheelEvents.TryDequeue(out var wheelEvent))
             {
-                // The co-ordinate system we are expecting is
-                // +x goes to right
-                // +y goes down.
-                // +amount is closer
-                // The co-ordinate system we are transforming to is LH down, so from the user's perspective
-                // +y is further away
-                // +x is right
-                // +z is up
-                // So after projecting to scale
-                // +y = -z 
-                // +x = x
-                // +amount = -y
-                var camera = player.CameraFor(player.ViewingWorld(g));
-
-                float x = ((wheelEvent.X / (float)size.Width) * 2) - 1;
-                float z = ((wheelEvent.Y / (float)size.Height) * 2) - 1;
-
-                var realLocation = Vector3.Normalize(new Vector3(x, -wheelEvent.Amount, -z));
+                var realLocation = Vector3.Transform(Vector3.Normalize(new Vector3(Space.Clip(wheelEvent.Position, size), wheelEvent.Amount)), camera.Orientation);
 
                 // Scale the amount depending on the camera Y
-                camera.Position += realLocation * camera.Position.Y * CameraSensitivity;
+                camera.Position += realLocation * camera.Position.Y * ZoomCameraSensitivity;
+            }
+
+            if (IsKeyDown(Key.W)) { Pan(camera, time, new Vector3(0, 1, 0)); }
+            if (IsKeyDown(Key.S)) { Pan(camera, time, new Vector3(0, -1, 0)); }
+            if (IsKeyDown(Key.A)) { Pan(camera, time, new Vector3(-1, 0, 0)); }
+            if (IsKeyDown(Key.D)) { Pan(camera, time, new Vector3(1, 0, 0)); }
+
+            Octree? octree = null;
+            var mousePos = mouseMoveEvent.Read();
+            if (mousePos != null)
+            {
+                octree = octree ?? world.CreateOctree();
+
+                player.Hover = At(camera.Unproject(Space.Clip(mousePos, size), size), octree);
+            }
+
+            var leftDown = leftMouseDownEvent.Read();
+            if (leftDown != null)
+            {
+                player.Selection.Clear();
+            }
+
+            if (leftDown != null && mousePos != null)
+            {
+                octree = octree ?? world.CreateOctree();
+                var frustum = camera.Unproject(Space.Clip(mousePos, size), Space.Clip(leftDown, size), size);
+                player.Highlight.Clear();
+                octree.Intersect(player.Highlight, frustum);
+                player.SelectionHighlight = new ScreenRectangle { End = mousePos, Start = leftDown };
+            }
+
+            if (selectionEvent.Consume(out var selection))
+            {
+                octree = octree ?? world.CreateOctree();
+
+                player.Highlight.Clear();
+                player.SelectionHighlight = null;
+
+                var frustum = camera.Unproject(Space.Clip(selection.Start, size), Space.Clip(selection.End, size), size);
+                player.Selection.Clear();
+                octree.Intersect(player.Selection, frustum);
+            }
+
+            if (rightMouseDownEvent.Consume(out var rightMouseDown))
+            {
+                var location = camera.Unproject(Space.Clip(rightMouseDown, size), size);
+
+                var order = new MoveOrder { Destination = location.AtY0() };
+                foreach (var unit in player.Selection)
+                {
+                    unit.Orders.Clear();
+                    unit.Orders.Enqueue(order);
+                }
             }
         }
 
-        public void OnMouseWheel(float amount, int x, int y)
+        private void Pan(Camera camera, TimeSpan time, Vector3 vec)
         {
-            mouseWheelEvents.Enqueue(new MouseWheelEvent { Amount = amount, X = x, Y = y });
+            camera.Position += Vector3.Transform(vec, camera.Orientation) * camera.Position.Y * PanCameraSensitivity * (float)time.TotalSeconds;
         }
 
-        public void OnResize(int width, int height)
+        public void OnKeyDown(Key key)
         {
-            viewSize = new WindowSize { Height = height, Width = width };
+            keyState[key] = true;
         }
+
+        public void OnKeyUp(Key key)
+        {
+            keyState[key] = false;
+        }
+
+        public void OnMouseWheel(float amount, ScreenPosition pos)
+        {
+            mouseWheelEvents.Enqueue(new MouseWheelEvent { Amount = amount, Position = pos });
+        }
+
+        public void OnResize(ScreenSize size)
+        {
+            viewSize = size;
+        }
+
+        private bool IsKeyDown(Key key)
+        {
+            if (keyState.TryGetValue(key, out var state)) return state;
+            return false;
+        }
+
+        public void OnMouseDown(MouseButton button, ScreenPosition pos)
+        {
+            if (button == MouseButton.Left)
+            {
+                leftMouseDownEvent.Set(pos);
+            }
+            if (button == MouseButton.Right)
+            {
+                rightMouseDownEvent.Set(pos);
+            }
+        }
+
+        public void OnMouseUp(MouseButton key, ScreenPosition pos)
+        {
+            if (key == MouseButton.Left)
+            {
+                if (leftMouseDownEvent.Consume(out var down))
+                {
+                    selectionEvent.Set(new SelectionEvent { Start = down, End = pos });
+                }
+            }
+        }
+
+        public void OnMouseMove(ScreenPosition pos)
+        {
+            mouseMoveEvent.Set(pos);
+        }
+
+        private Unit? At(Ray ray, Octree octree)
+        {
+            var world = player.ViewingWorld(game);
+            var camera = player.CameraFor(world);
+            var units = octree.Intersect(ray);
+
+            if (units.Count == 0) return null;
+            if (units.Count == 1) return units.First();
+
+            return units.OrderBy(x => Vector3.Distance(x.Position, camera.Position)).First();
+        }
+
 
         private class MouseWheelEvent
         {
-            public float Amount { get; set; }
-            public int X { get; set; }
-            public int Y { get; set; }
+            public required float Amount { get; init; }
+            public required ScreenPosition Position { get; init; }
+        }
+
+        private class SelectionEvent
+        {
+            public required ScreenPosition Start { get; init; }
+            public required ScreenPosition End { get; init; }
         }
     }
 }

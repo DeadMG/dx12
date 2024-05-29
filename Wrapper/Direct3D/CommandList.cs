@@ -19,7 +19,7 @@
             return waitValue;
         }
 
-        public void Barrier(Resource resource, SharpDX.Direct3D12.ResourceStates origin, SharpDX.Direct3D12.ResourceStates destination)
+        public void Barrier(RenderTargetView resource, SharpDX.Direct3D12.ResourceStates origin, SharpDX.Direct3D12.ResourceStates destination)
         {
             List.ResourceBarrier(new SharpDX.Direct3D12.ResourceBarrier(new SharpDX.Direct3D12.ResourceTransitionBarrier(resource.Native, origin, destination)));
         }

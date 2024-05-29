@@ -1,7 +1,8 @@
 ﻿namespace Wrapper.Direct3D
 {
-    public class CommandQueue
+    public class CommandQueue : IDisposable
     {
+        private readonly DisposeTracker tracker = new DisposeTracker();
         private readonly Queue<SharpDX.Direct3D12.GraphicsCommandList> commandLists = new Queue<SharpDX.Direct3D12.GraphicsCommandList>();
         private readonly Queue<CommandAllocatorEntry> commandAllocators = new Queue<CommandAllocatorEntry>();
         private readonly object queueLock = new object();
@@ -15,9 +16,8 @@
         internal CommandQueue(Device device, SharpDX.Direct3D12.CommandQueue queue)
         {
             this.device = device;
-            this.queue = queue;
-
-            this.fence = device.Native.CreateFence(0, SharpDX.Direct3D12.FenceFlags.None);
+            this.queue = tracker.Track(queue);
+            this.fence = tracker.Track(device.Native.CreateFence(0, SharpDX.Direct3D12.FenceFlags.None));
         }
 
         public FenceWait Wait()
@@ -38,7 +38,7 @@
 
                 if (!commandLists.TryDequeue(out var commandList))
                 {
-                    commandList = device.Native.CreateCommandList(queue.Description.Type, allocator, null);
+                    commandList = tracker.Track(device.Native.CreateCommandList(queue.Description.Type, allocator, null));
                 }
                 else
                 {
@@ -90,23 +90,12 @@
                 }
             }
 
-            return device.Native.CreateCommandAllocator(queue.Description.Type);
+            return tracker.Track(device.Native.CreateCommandAllocator(queue.Description.Type));
         }
 
         public void Dispose()
         {
-            foreach (var list in commandLists)
-            {
-                list.Dispose();
-            }
-
-            foreach (var entry in commandAllocators)
-            {
-                entry.Allocator.Dispose();
-            }
-
-            fence.Dispose();
-            queue.Dispose();
+            tracker.Dispose();
         }
 
         private class CommandAllocatorEntry

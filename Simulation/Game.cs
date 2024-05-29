@@ -12,15 +12,16 @@ namespace Simulation
         public async Task Update(TimeSpan realElapsedTime)
         {
             var ticks = Rate.TicksFor(realElapsedTime);
-            for (int i = 0; i < ticks; i++)
+
+            for (uint i = 0; i < ticks; ++i)
             {
                 Tick();
             }
         }
 
-        public World AddWorld()
+        public World AddWorld(Vector3 dimensions)
         {
-            var world = new World();
+            var world = new World(dimensions);
             Worlds.Add(world);
             return world;
         }

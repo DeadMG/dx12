@@ -1,7 +1,4 @@
-﻿using System.Drawing;
-using System.Runtime.InteropServices;
-
-namespace Wrapper.Direct3D
+﻿namespace Wrapper.Direct3D
 {
     public class CopyCommandList : CommandList
     {

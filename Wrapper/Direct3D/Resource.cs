@@ -2,11 +2,12 @@
 {
     public class Resource : IDisposable
     {
+        private readonly DisposeTracker tracker = new DisposeTracker();
         protected readonly SharpDX.Direct3D12.Resource resource;
 
         public Resource(SharpDX.Direct3D12.Resource resource)
         {
-            this.resource = resource;
+            this.resource = tracker.Track(resource);
         }
 
         internal SharpDX.Direct3D12.Resource Native => resource;
@@ -15,7 +16,7 @@
 
         public void Dispose()
         {
-            resource.Dispose();
+            tracker.Dispose();
         }
     }
 }

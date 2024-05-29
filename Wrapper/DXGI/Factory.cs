@@ -7,6 +7,12 @@
         public Factory()
         {
             factory = new SharpDX.DXGI.Factory2(Debug).QueryInterface<SharpDX.DXGI.Factory5>();
+            using (var queue = SharpDX.DXGI.InfoQueue.TryCreate())
+            {
+                queue?.SetBreakOnSeverity(SharpDX.DXGI.DebugId.All, SharpDX.DXGI.InformationQueueMessageSeverity.Corruption, true);
+                queue?.SetBreakOnSeverity(SharpDX.DXGI.DebugId.All, SharpDX.DXGI.InformationQueueMessageSeverity.Error, true);
+                queue?.SetBreakOnSeverity(SharpDX.DXGI.DebugId.All, SharpDX.DXGI.InformationQueueMessageSeverity.Warning, true);
+            }
         }
 
         public void Dispose()

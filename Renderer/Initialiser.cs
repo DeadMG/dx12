@@ -1,4 +1,5 @@
-﻿using SharpDX.Direct3D12;
+﻿using SharpDX;
+using SharpDX.Direct3D12;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 
@@ -21,6 +22,8 @@ namespace Renderer
             {
                 debug.EnableDebugLayer();
             }
+
+            Configuration.EnableObjectTracking = true;
         }
 
         [DllImport("user32.dll")]

@@ -1,12 +1,18 @@
-﻿using System.ComponentModel;
+﻿using Data;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 
 namespace Renderer
 {
     public interface IWindowListener
     {
-        public void OnResize(WindowSize size);
-        public void OnMouseWheel(float amount, int x, int y);
+        public void OnResize(ScreenSize size);
+        public void OnMouseWheel(float amount, ScreenPosition pos);
+        public void OnKeyDown(Key key);
+        public void OnKeyUp(Key key);
+        public void OnMouseDown(MouseButton button, ScreenPosition pos);
+        public void OnMouseUp(MouseButton button, ScreenPosition pos);
+        public void OnMouseMove(ScreenPosition pos);
     }
 
     public class Window
@@ -14,7 +20,7 @@ namespace Renderer
         private readonly CancellationTokenSource cts = new CancellationTokenSource();
         private readonly TaskCompletionSource<int> closedTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource<IntPtr> hwndTcs = new TaskCompletionSource<IntPtr>(TaskCreationOptions.RunContinuationsAsynchronously);
-        private readonly TaskCompletionSource<WindowSize> sizeTcs = new TaskCompletionSource<WindowSize>(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<ScreenSize> sizeTcs = new TaskCompletionSource<ScreenSize>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public Window()
         {
@@ -79,6 +85,8 @@ namespace Renderer
             if (msg == WM_DESTROY)
             {
                 cts.Cancel();
+
+                return 0;
             }
             if (msg == WM_SIZE)
             {
@@ -87,10 +95,30 @@ namespace Renderer
                     int width = rect.right - rect.left;
                     int height = rect.bottom - rect.top;
 
-                    var newSize = new WindowSize { Width = width, Height = height };
+                    var newSize = new ScreenSize { Width = width, Height = height };
 
                     sizeTcs.TrySetResult(newSize);
                     Listener?.OnResize(newSize);
+
+                    return 0;
+                }
+            }
+
+            if (msg == WM_KEYDOWN)
+            {
+                if (keyboardKeys.TryGetValue(wParam, out var key))
+                {
+                    Listener?.OnKeyDown(key);
+                    return 0;
+                }
+            }
+
+            if (msg == WM_KEYUP)
+            {
+                if (keyboardKeys.TryGetValue(wParam, out var key))
+                {
+                    Listener?.OnKeyUp(key);
+                    return 0;
                 }
             }
 
@@ -106,16 +134,61 @@ namespace Renderer
                 var rotations = (float)rotation / WHEEL_DELTA;
                 if (ScreenToClient(hWnd, ref location))
                 {
-                    Listener?.OnMouseWheel(rotations, location.x, location.y);
+                    Listener?.OnMouseWheel(rotations, new ScreenPosition { X = location.x, Y = location.y });
                 }
+
+                return 0;
+            }
+
+            if (msg == WM_MOUSEMOVE)
+            {
+                Listener?.OnMouseMove(PosFromLparam(lParam));
+
+                return 0;
+            }
+
+            if (msg == WM_LBUTTONDOWN)
+            {
+                Listener?.OnMouseDown(MouseButton.Left, PosFromLparam(lParam));
+
+                return 0;
+            }
+
+            if (msg == WM_LBUTTONUP)
+            {
+                Listener?.OnMouseUp(MouseButton.Left, PosFromLparam(lParam));
+
+                return 0;
+            }
+
+            if (msg == WM_RBUTTONDOWN)
+            {
+                Listener?.OnMouseDown(MouseButton.Right, PosFromLparam(lParam));
+
+                return 0;
+            }
+
+            if (msg == WM_RBUTTONUP)
+            {
+                Listener?.OnMouseUp(MouseButton.Right, PosFromLparam(lParam));
+
+                return 0;
             }
 
             return DefWindowProc(hWnd, msg, wParam, lParam);
         }
 
+        private ScreenPosition PosFromLparam(IntPtr lParam)
+        {
+            var x = unchecked((short)(lParam.ToInt64() & 0xFFFF));
+            var y = unchecked((short)((lParam.ToInt64() >> 16) & 0xFFFF));
+
+            return new ScreenPosition { X = x, Y = y };
+        }
+
         public Task Closed => closedTcs.Task;
         public Task<IntPtr> HWND => hwndTcs.Task;
-        public Task<WindowSize> InitialSize => sizeTcs.Task;
+        public Task<ScreenSize> InitialSize => sizeTcs.Task;
 
         const int SW_SHOWDEFAULT = 10;
         const int CS_HREDRAW = 2;
@@ -131,7 +204,14 @@ namespace Renderer
         const int WM_DESTROY = 0x2;
         const int WM_SIZE = 0x5;
         const int WM_MOUSEWHEEL = 0x20A;
+        const int WM_KEYDOWN = 0x0100;
+        const int WM_KEYUP = 0x101;
         const int WHEEL_DELTA = 120;
+        const int WM_LBUTTONDOWN = 0x0201;
+        const int WM_LBUTTONUP = 0x0202;
+        const int WM_MOUSEMOVE = 0x0200;
+        const int WM_RBUTTONDOWN = 0x0204;
+        const int WM_RBUTTONUP = 0x0205;
 
         struct RECT
         {
@@ -226,5 +306,13 @@ namespace Renderer
             public int x;
             public int y;
         }
+
+        private readonly Dictionary<IntPtr, Key> keyboardKeys = new Dictionary<IntPtr, Key>
+        {
+            { 0x57, Key.W },
+            { 0x53, Key.S },
+            { 0x44, Key.D },
+            { 0x41, Key.A },
+        };
     }
 }

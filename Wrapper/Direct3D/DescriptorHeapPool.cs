@@ -4,8 +4,8 @@ namespace Wrapper.Direct3D
 {
     class DescriptorHeapPool : IDisposable
     {
+        private readonly DisposeTracker tracker = new DisposeTracker();
         private readonly SharpDX.Direct3D12.Device device;
-        private readonly ConcurrentBag<SharpDX.Direct3D12.DescriptorHeap> descriptorHeaps = new ConcurrentBag<SharpDX.Direct3D12.DescriptorHeap>();
         private readonly ConcurrentQueue<DescriptorHeapSlot> availableSlots = new ConcurrentQueue<DescriptorHeapSlot>();
         private readonly SharpDX.Direct3D12.DescriptorHeapDescription desc;
 
@@ -22,8 +22,7 @@ namespace Wrapper.Direct3D
                 return new DescriptorHeapEntry(this, slot);
             }
 
-            var heap = device.CreateDescriptorHeap(desc);
-            descriptorHeaps.Add(heap);
+            var heap = tracker.Track(device.CreateDescriptorHeap(desc));
 
             var startHandle = heap.CPUDescriptorHandleForHeapStart;
             var size = device.GetDescriptorHandleIncrementSize(desc.Type);
@@ -42,10 +41,7 @@ namespace Wrapper.Direct3D
 
         public void Dispose()
         {
-            foreach (var heap in descriptorHeaps)
-            {
-                heap.Dispose();
-            }
+            tracker.Dispose();
         }
     }
 }

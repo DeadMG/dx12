@@ -3,15 +3,15 @@ using Wrapper.Direct3D;
 using Simulation;
 using SharpDX.Mathematics.Interop;
 using Data;
-using System.Numerics;
-using System.Runtime.InteropServices;
+using Wrapper;
 
 namespace Renderer
 {
     public class Core : IDisposable
     {
+        private readonly DisposeTracker tracker = new DisposeTracker();
         private readonly ResourceCache resourceCache;
-        private readonly Factory factory = new Factory();
+        private readonly Wrapper.DXGI.Factory factory;
         private readonly Adapter adapter;
         private readonly Device device;
         private readonly DirectCommandQueue commandQueue;
@@ -19,34 +19,35 @@ namespace Renderer
         private readonly Pipeline pipeline;
         private readonly DepthBuffer depthBuffer;
         private readonly CopyCommandQueue copyQueue;
-        private int width;
-        private int height;
 
-        public Core(IntPtr hWnd, int width, int height)
+        private ScreenSize screenSize;
+
+        public Core(IntPtr hWnd, ScreenSize screenSize)
         {
-            this.width = width;
-            this.height = height;
+            this.screenSize = screenSize;
 
-            adapter = factory.SelectAdapter(adapters => adapters
+            this.factory = tracker.Track(new Wrapper.DXGI.Factory());
+
+            adapter = tracker.Track(factory.SelectAdapter(adapters => adapters
                 .Where(a => !a.IsSoftware)
-                .MaxBy(a => a.DedicatedVideoMemory));
+                .MaxBy(a => a.DedicatedVideoMemory)));
 
-            device = adapter.CreateDevice();
-            commandQueue = device.CreateDirectCommandQueue();
-            copyQueue = device.CreateCopyCommandQueue();
-            swapChain = commandQueue.CreateSwapChain(hWnd, 3, width, height);
-            resourceCache = new ResourceCache(device, copyQueue.CreateCommandList());
+            device = tracker.Track(adapter.CreateDevice());
+            commandQueue = tracker.Track(device.CreateDirectCommandQueue());
+            copyQueue = tracker.Track(device.CreateCopyCommandQueue());
+            swapChain = tracker.Track(commandQueue.CreateSwapChain(hWnd, 3, screenSize));
+            resourceCache = tracker.Track(new ResourceCache(device, copyQueue.CreateCommandList()));
 
             factory.IgnoreAltEnter(hWnd);
 
-            pipeline = device.CreatePipeline(new PipelineDescriptor
+            pipeline = tracker.Track(device.CreatePipeline(new PipelineDescriptor
             {
                 PixelShader = new Shader { Filename = "pixel.hlsl", EntryPoint = "main" },
                 VertexShader = new Shader { Filename = "vertex.hlsl", EntryPoint = "main" },
                 RenderTargetFormats = [swapChain.RenderTargetFormat]
-            });
+            }));
 
-            depthBuffer = device.CreateDepthBuffer(width, height);
+            depthBuffer = tracker.Track(device.CreateDepthBuffer(screenSize));
         }
 
         public Task Load(Blueprint[] blueprints)
@@ -58,82 +59,52 @@ namespace Renderer
         {
             var commandList = commandQueue.CreateCommandList();
             var world = player.ViewingWorld(simulation);
-            var vpMatrix = player.CameraFor(world).ViewProjectionMatrix(width, height);
-
-            var byBlueprint = world.Units.ToLookup(u => u.Blueprint);
+            var vpMatrix = player.CameraFor(world).ViewProjectionMatrix(screenSize);
 
             var rtv = swapChain.PrepareBackBuffer(commandList, new RawColor4 { R = 0, G = 0, B = 0, A = 1.0f });
             commandList.ClearDepthBuffer(depthBuffer, 1f);
-            commandList.SetPipeline(pipeline);
-            commandList.List.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
-            commandList.List.SetViewport(new RawViewportF { Width = width, Height = height, MaxDepth = 1.0f, MinDepth = 0f });
-            commandList.List.SetScissorRectangles(new RawRectangle { Left = 0, Top = 0, Bottom = int.MaxValue, Right = int.MaxValue });
-            commandList.List.SetRenderTargets(new[] { rtv.Handle }, depthBuffer.Handle);
+            commandList.Execute();
 
-            var instanceBuffers = new List<IDisposable>();
-            foreach (var unitGroup in byBlueprint)
+            using (var tracker = new DisposeTracker())
             {
-                var unitData = unitGroup
-                    .Select(x => new InstanceData { ModelMatrix = Matrix4x4.CreateFromQuaternion(x.Orientation) * Matrix4x4.CreateTranslation(x.Position) })
-                    .ToArray();
-
-                var meshData = resourceCache.For(unitGroup.Key);
-                var instanceBuffer = device.CreateUploadBuffer(Marshal.SizeOf<InstanceData>() * unitData.Length);
-
-                instanceBuffer.Upload(unitData);
-                instanceBuffers.Add(instanceBuffer);
-
-                commandList.List.SetVertexBuffer(0, new SharpDX.Direct3D12.VertexBufferView
+                var param = new RendererParameters
                 {
-                    SizeInBytes = Marshal.SizeOf<Vertex>() * unitGroup.Key.Mesh.Vertices.Length,
-                    BufferLocation = meshData.VertexBuffer.GPUHandle,
-                    StrideInBytes = Marshal.SizeOf<Vertex>()
-                });
-                commandList.List.SetVertexBuffer(1, new SharpDX.Direct3D12.VertexBufferView
-                {
-                    SizeInBytes = Marshal.SizeOf<InstanceData>() * unitData.Length,
-                    BufferLocation = instanceBuffer.GPUHandle,
-                    StrideInBytes = Marshal.SizeOf<InstanceData>()
-                });
-                commandList.List.SetIndexBuffer(new SharpDX.Direct3D12.IndexBufferView
-                {
-                    SizeInBytes = Marshal.SizeOf<short>() * unitGroup.Key.Mesh.Indices.Length,
-                    BufferLocation = meshData.IndexBuffer.GPUHandle,
-                    Format = SharpDX.DXGI.Format.R16_UInt
-                });
-                commandList.SetGraphicsRoot32BitConstants(vpMatrix);
-                commandList.List.DrawIndexedInstanced(unitGroup.Key.Mesh.Indices.Length, unitData.Length, 0, 0, 0);
-            }
+                    CommandList = commandList,
+                    Device = device,
+                    ResourceCache = resourceCache,
+                    Tracker = tracker,
+                    VPMatrix = vpMatrix,
+                    Pipeline = pipeline,
+                    ScreenSize = screenSize,
+                    DepthBuffer = depthBuffer,
+                    RenderTargetView = rtv
+                };
 
-            swapChain.Present(commandList);
+                new WorldRenderer().Render(param, world);
 
-            await commandQueue.Flush().AsTask();
+                var draw = swapChain.BeginDirect2D();
 
-            foreach(var buffer in instanceBuffers)
-            {
-                buffer.Dispose();
+                new UIRenderer().Render(param, player, draw);
+
+                commandList.Execute();
+
+                swapChain.Present();
+
+                await commandQueue.Flush().AsTask();
             }
         }
 
-        public void Resize(int width, int height)
+        public void Resize(ScreenSize size)
         {
-            this.width = width;
-            this.height = height;
+            this.screenSize = size;
 
-            swapChain.Resize(width, height);
-            depthBuffer.Resize(width, height);
+            swapChain.Resize(size);
+            depthBuffer.Resize(size);
         }
 
         public void Dispose()
         {
-            copyQueue.Dispose();
-            depthBuffer.Dispose();
-            pipeline.Dispose();
-            commandQueue.Dispose();
-            swapChain.Dispose();
-            adapter.Dispose();
-            device.Dispose();
-            factory.Dispose();
+            tracker.Dispose();
         }
     }
 }

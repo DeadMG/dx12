@@ -1,26 +1,26 @@
-﻿using Renderer;
+﻿using Data;
+using Renderer;
 
 namespace Application
 {
     public class WindowListener : IWindowListener
     {
-        private readonly ResizeTracker queue;
         private readonly IControlScheme scheme;
 
-        public WindowListener(ResizeTracker queue, IControlScheme scheme)
+        public WindowListener(IControlScheme scheme)
         {
-            this.queue = queue;
             this.scheme = scheme;
         }
 
-        public void OnMouseWheel(float amount, int x, int y)
-        {
-            scheme.OnMouseWheel(amount, x, y);
-        }
+        public void OnKeyDown(Key key) => scheme.OnKeyDown(key);
+        public void OnKeyUp(Key key) => scheme.OnKeyUp(key);
+        public void OnMouseDown(MouseButton key, ScreenPosition pos) => scheme.OnMouseDown(key, pos);
+        public void OnMouseUp(MouseButton key, ScreenPosition pos) => scheme.OnMouseUp(key, pos);
+        public void OnMouseWheel(float amount, ScreenPosition pos) => scheme.OnMouseWheel(amount, pos);
+        public void OnMouseMove(ScreenPosition pos) => scheme.OnMouseMove(pos);
 
-        public void OnResize(WindowSize size)
-        {
-            queue.Resize(size);
-        }
+        public void OnResize(ScreenSize size) => Resize.Set(size);
+
+        public readonly Latest<ScreenSize> Resize = new Latest<ScreenSize>();
     }
 }

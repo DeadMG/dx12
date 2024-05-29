@@ -1,10 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using Data;
 using System.Runtime.InteropServices;
 
 namespace Wrapper.Direct3D
 {
     public class Device : IDisposable
     {
+        private readonly DisposeTracker tracker = new DisposeTracker();
         private readonly SharpDX.DXGI.Factory5 factory;
         private readonly SharpDX.Direct3D12.Device device;
         private readonly DescriptorHeapPool depthStencilPool;
@@ -13,7 +14,7 @@ namespace Wrapper.Direct3D
         internal Device(SharpDX.DXGI.Factory5 factory, SharpDX.Direct3D12.Device device)
         {
             this.factory = factory;
-            this.device = device;
+            this.device = tracker.Track(device);
 
             using (var infoQueue = device.QueryInterfaceOrNull<SharpDX.Direct3D12.InfoQueue>())
             {
@@ -22,13 +23,15 @@ namespace Wrapper.Direct3D
                 infoQueue?.SetBreakOnSeverity(SharpDX.Direct3D12.MessageSeverity.Warning, true);
             }
 
-            depthStencilPool = new DescriptorHeapPool(device, new SharpDX.Direct3D12.DescriptorHeapDescription
+            depthStencilPool = tracker.Track(new DescriptorHeapPool(device, new SharpDX.Direct3D12.DescriptorHeapDescription
             {
                 DescriptorCount = 10,
                 Flags = SharpDX.Direct3D12.DescriptorHeapFlags.None,
                 NodeMask = 0,
                 Type = SharpDX.Direct3D12.DescriptorHeapType.DepthStencilView
-            });
+            }));
+
+            tracker.Track(shaderPool);
         }
 
         internal SharpDX.Direct3D12.Device Native => device;
@@ -67,9 +70,9 @@ namespace Wrapper.Direct3D
             return false;
         }
 
-        public DepthBuffer CreateDepthBuffer(int width, int height)
+        public DepthBuffer CreateDepthBuffer(ScreenSize size)
         {
-            return new DepthBuffer(device, depthStencilPool.GetSlot(), width, height);
+            return new DepthBuffer(device, depthStencilPool.GetSlot(), size);
         }
 
         public Resource CreateStaticBuffer(int size)
@@ -110,7 +113,7 @@ namespace Wrapper.Direct3D
                 RenderTargetCount = descriptor.RenderTargetFormats.Length,
                 InputLayout = new SharpDX.Direct3D12.InputLayoutDescription([
                     new SharpDX.Direct3D12.InputElement("POSITION", 0, SharpDX.DXGI.Format.R32G32B32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 0, SharpDX.Direct3D12.InputClassification.PerVertexData, 0),
-                    new SharpDX.Direct3D12.InputElement("COLOR", 0, SharpDX.DXGI.Format.R32G32B32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 0, SharpDX.Direct3D12.InputClassification.PerVertexData, 0),
+                    new SharpDX.Direct3D12.InputElement("COLOR", 0, SharpDX.DXGI.Format.R32G32B32A32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 0, SharpDX.Direct3D12.InputClassification.PerVertexData, 0),
                     new SharpDX.Direct3D12.InputElement("INSTANCE_TRANSFORM", 0, SharpDX.DXGI.Format.R32G32B32A32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 1, SharpDX.Direct3D12.InputClassification.PerInstanceData, 1),
                     new SharpDX.Direct3D12.InputElement("INSTANCE_TRANSFORM", 1, SharpDX.DXGI.Format.R32G32B32A32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 1, SharpDX.Direct3D12.InputClassification.PerInstanceData, 1),
                     new SharpDX.Direct3D12.InputElement("INSTANCE_TRANSFORM", 2, SharpDX.DXGI.Format.R32G32B32A32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 1, SharpDX.Direct3D12.InputClassification.PerInstanceData, 1),
@@ -156,7 +159,7 @@ namespace Wrapper.Direct3D
 
         public void Dispose()
         {
-            device.Dispose();
+            tracker.Dispose();
         }
     }
 }

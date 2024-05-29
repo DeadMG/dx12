@@ -4,6 +4,6 @@ namespace Renderer
 {
     public struct InstanceData
     {
-        public Matrix4x4 ModelMatrix { get; set; }
+        public Matrix4x4 WorldMatrix { get; set; }
     }
 }
