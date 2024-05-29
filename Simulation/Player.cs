@@ -10,7 +10,7 @@ namespace Simulation
         public HashSet<Unit> Selection { get; } = new HashSet<Unit>();
         public Dictionary<World, Camera> Cameras { get; } = new Dictionary<World, Camera>();
         public World? CurrentWorld { get; set; }
-        public ScreenRectangle? SelectionHighlight { get; set; }
+        public ScreenRectangle? SelectionBox { get; set; }
 
         public World ViewingWorld(Game game)
         {

@@ -12,7 +12,7 @@ namespace Application
     {
         private readonly ConcurrentQueue<MouseWheelEvent> mouseWheelEvents = new ConcurrentQueue<MouseWheelEvent>();
         private readonly ConcurrentDictionary<Key, bool> keyState = new ConcurrentDictionary<Key, bool>();
-        private readonly Latest<SelectionEvent> selectionEvent = new Latest<SelectionEvent>();
+        private readonly Latest<ScreenRectangle> selectionEvent = new Latest<ScreenRectangle>();
         private readonly Latest<ScreenPosition> rightMouseDownEvent = new Latest<ScreenPosition>();
         private readonly Latest<ScreenPosition> leftMouseDownEvent = new Latest<ScreenPosition>();
         private readonly Latest<ScreenPosition> mouseMoveEvent = new Latest<ScreenPosition>();
@@ -73,7 +73,7 @@ namespace Application
                 var frustum = camera.Unproject(Space.Clip(mousePos, size), Space.Clip(leftDown, size), size);
                 player.Highlight.Clear();
                 octree.Intersect(player.Highlight, frustum);
-                player.SelectionHighlight = new ScreenRectangle { End = mousePos, Start = leftDown };
+                player.SelectionBox = new ScreenRectangle { End = mousePos, Start = leftDown };
             }
 
             if (selectionEvent.Consume(out var selection))
@@ -81,7 +81,7 @@ namespace Application
                 octree = octree ?? world.CreateOctree();
 
                 player.Highlight.Clear();
-                player.SelectionHighlight = null;
+                player.SelectionBox = null;
 
                 var frustum = camera.Unproject(Space.Clip(selection.Start, size), Space.Clip(selection.End, size), size);
                 player.Selection.Clear();
@@ -150,7 +150,7 @@ namespace Application
             {
                 if (leftMouseDownEvent.Consume(out var down))
                 {
-                    selectionEvent.Set(new SelectionEvent { Start = down, End = pos });
+                    selectionEvent.Set(new ScreenRectangle { Start = down, End = pos });
                 }
             }
         }
@@ -172,17 +172,10 @@ namespace Application
             return units.OrderBy(x => Vector3.Distance(x.Position, camera.Position)).First();
         }
 
-
         private class MouseWheelEvent
         {
             public required float Amount { get; init; }
             public required ScreenPosition Position { get; init; }
-        }
-
-        private class SelectionEvent
-        {
-            public required ScreenPosition Start { get; init; }
-            public required ScreenPosition End { get; init; }
         }
     }
 }
