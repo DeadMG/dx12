@@ -48,15 +48,18 @@ namespace Test
                         4, 5, 6,
                         7, 8, 9,
                     ]
-                }
+                },
+                Acceleration = 3,
+                MaxSpeed = 100,
+                TurnRate = (float)Math.PI / 2,
             };
 
             var world = simulation.AddWorld(new Vector3(100000, 100000, 100000));
 
-            world.Add(new Unit(player, print, new Vector3(8, 0, 8), new Quaternion()));
-            world.Add(new Unit(player, print, new Vector3(-8, 0, 8), new Quaternion()));
-            world.Add(new Unit(player, print, new Vector3(-8, 0, -8), new Quaternion()));
-            world.Add(new Unit(player, print, new Vector3(8, 0, -8), new Quaternion()));
+            world.Add(new Unit(player, print, new Vector3(8, 0, 8), Quaternion.Identity));
+            world.Add(new Unit(player, print, new Vector3(-8, 0, 8), Quaternion.Identity));
+            world.Add(new Unit(player, print, new Vector3(-8, 0, -8), Quaternion.Identity));
+            world.Add(new Unit(player, print, new Vector3(8, 0, -8), Quaternion.Identity));
 
             player.CameraFor(world).Position = new Vector3(0, 30, 0);
             player.CameraFor(world).Orientation = Quaternion.CreateFromAxisAngle(new Vector3(1, 0, 0), 90f.ToRadians());

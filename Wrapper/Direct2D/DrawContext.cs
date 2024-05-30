@@ -11,9 +11,9 @@ namespace Wrapper.Direct2D
             this.deviceContext = deviceContext;
         }
 
-        public void DrawLine(ScreenPosition start, ScreenPosition end, IBrush brush)
+        public void DrawLine(ScreenPosition start, ScreenPosition end, IBrush brush, float? stroke)
         {
-            deviceContext.DrawLine(start.AsRawVector2(), end.AsRawVector2(), brush.Native);
+            deviceContext.DrawLine(start.AsRawVector2(), end.AsRawVector2(), brush.Native, stroke ?? 1);
         }
 
         public void FillRect(ScreenRectangle rect, IBrush brush)

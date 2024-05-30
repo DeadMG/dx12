@@ -6,7 +6,7 @@ namespace Simulation
     public class Camera
     {
         public Vector3 Position { get; set; } = new Vector3();
-        public Quaternion Orientation { get; set; } = new Quaternion();
+        public Quaternion Orientation { get; set; } = Quaternion.Identity;
         public float Fov { get; set; } = 90;
 
         public Matrix4x4 ViewProjectionMatrix(ScreenSize size)

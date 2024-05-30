@@ -23,5 +23,10 @@ namespace Data
         {
             return ((screen / (float)max) * 2) - 1;
         }
+
+        public static ScreenPosition Screen(Vector3 worldPosition, Matrix4x4 projectionMatrix,  ScreenSize screenSize)
+        {
+            return Space.Screen(Vector4.Transform(new Vector4(worldPosition, 1.0f), projectionMatrix).PerspectiveDivide().DropZ(), screenSize);
+        }
     }
 }

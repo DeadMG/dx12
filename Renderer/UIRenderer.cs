@@ -12,12 +12,12 @@ namespace Renderer
         public Colour SelectionBoxOutlineColour = new Colour { B = 1, G = 1, R = 1 };
         public Colour SelectionBoxFillColour = new Colour { B = 1, G = 1, R = 1, A = 0.5f };
 
-        internal void Render(RendererParameters rp, Player player, DrawContext draw)
+        internal void Render(RendererParameters rp, DrawContext draw)
         {
-            RenderHover(rp, player.Hover, draw);
-            RenderHighlight(rp, player.Highlight, draw);
-            RenderSelection(rp, player.Selection, draw);
-            RenderSelectionBox(rp, player.SelectionBox, draw);
+            RenderHover(rp, rp.Player.Hover, draw);
+            RenderHighlight(rp, rp.Player.Highlight, draw);
+            RenderSelection(rp, rp.Player.Selection, draw);
+            RenderSelectionBox(rp, rp.Player.SelectionBox, draw);
         }
 
         private void RenderHover(RendererParameters rp, Unit? hover, DrawContext draw)
@@ -35,10 +35,10 @@ namespace Renderer
             var width = Math.Abs(screenEnd.X - screenStart.X) / 10;
             var height = Math.Abs(screenEnd.Y - screenStart.Y) / 10;
 
-            draw.DrawLine(screenStart, new ScreenPosition { X = screenStart.X + width, Y = screenStart.Y }, hoverBrush);
-            draw.DrawLine(screenStart, new ScreenPosition { X = screenStart.X, Y = screenStart.Y - height }, hoverBrush);
-            draw.DrawLine(screenEnd, new ScreenPosition { X = screenEnd.X - width, Y = screenEnd.Y }, hoverBrush);
-            draw.DrawLine(screenEnd, new ScreenPosition { X = screenEnd.X, Y = screenEnd.Y + height }, hoverBrush);
+            draw.DrawLine(screenStart, new ScreenPosition { X = screenStart.X + width, Y = screenStart.Y }, hoverBrush, ScaleStrokeWidth(3, rp.Player, rp.World));
+            draw.DrawLine(screenStart, new ScreenPosition { X = screenStart.X, Y = screenStart.Y - height }, hoverBrush, ScaleStrokeWidth(3, rp.Player, rp.World));
+            draw.DrawLine(screenEnd, new ScreenPosition { X = screenEnd.X - width, Y = screenEnd.Y }, hoverBrush, ScaleStrokeWidth(3, rp.Player, rp.World));
+            draw.DrawLine(screenEnd, new ScreenPosition { X = screenEnd.X, Y = screenEnd.Y + height }, hoverBrush, ScaleStrokeWidth(3, rp.Player, rp.World));
         }
 
         private void RenderHighlight(RendererParameters rp, HashSet<Unit> highlight, DrawContext draw)
@@ -57,10 +57,10 @@ namespace Renderer
                 var width = Math.Abs(screenEnd.X - screenStart.X) / 10;
                 var height = Math.Abs(screenEnd.Y - screenStart.Y) / 10;
 
-                draw.DrawLine(screenStart, new ScreenPosition { X = screenStart.X + width, Y = screenStart.Y }, highlightBrush);
-                draw.DrawLine(screenStart, new ScreenPosition { X = screenStart.X, Y = screenStart.Y - height }, highlightBrush);
-                draw.DrawLine(screenEnd, new ScreenPosition { X = screenEnd.X - width, Y = screenEnd.Y }, highlightBrush);
-                draw.DrawLine(screenEnd, new ScreenPosition { X = screenEnd.X, Y = screenEnd.Y + height }, highlightBrush);
+                draw.DrawLine(screenStart, new ScreenPosition { X = screenStart.X + width, Y = screenStart.Y }, highlightBrush, ScaleStrokeWidth(3, rp.Player, rp.World));
+                draw.DrawLine(screenStart, new ScreenPosition { X = screenStart.X, Y = screenStart.Y - height }, highlightBrush, ScaleStrokeWidth(3, rp.Player, rp.World));
+                draw.DrawLine(screenEnd, new ScreenPosition { X = screenEnd.X - width, Y = screenEnd.Y }, highlightBrush, ScaleStrokeWidth(3, rp.Player, rp.World));
+                draw.DrawLine(screenEnd, new ScreenPosition { X = screenEnd.X, Y = screenEnd.Y + height }, highlightBrush, ScaleStrokeWidth(3, rp.Player, rp.World));
             }
         }
 
@@ -80,10 +80,10 @@ namespace Renderer
                 var width = Math.Abs(screenEnd.X - screenStart.X) / 10;
                 var height = Math.Abs(screenEnd.Y - screenStart.Y) / 10;
 
-                draw.DrawLine(screenStart, new ScreenPosition { X = screenStart.X + width, Y = screenStart.Y }, selectionBrush);
-                draw.DrawLine(screenStart, new ScreenPosition { X = screenStart.X, Y = screenStart.Y - height }, selectionBrush);
-                draw.DrawLine(screenEnd, new ScreenPosition { X = screenEnd.X - width, Y = screenEnd.Y }, selectionBrush);
-                draw.DrawLine(screenEnd, new ScreenPosition { X = screenEnd.X, Y = screenEnd.Y + height }, selectionBrush);
+                draw.DrawLine(screenStart, new ScreenPosition { X = screenStart.X + width, Y = screenStart.Y }, selectionBrush, ScaleStrokeWidth(3, rp.Player, rp.World));
+                draw.DrawLine(screenStart, new ScreenPosition { X = screenStart.X, Y = screenStart.Y - height }, selectionBrush, ScaleStrokeWidth(3, rp.Player, rp.World));
+                draw.DrawLine(screenEnd, new ScreenPosition { X = screenEnd.X - width, Y = screenEnd.Y }, selectionBrush, ScaleStrokeWidth(3, rp.Player, rp.World));
+                draw.DrawLine(screenEnd, new ScreenPosition { X = screenEnd.X, Y = screenEnd.Y + height }, selectionBrush, ScaleStrokeWidth(3, rp.Player, rp.World));
             }
         }
 
@@ -99,11 +99,16 @@ namespace Renderer
             var bottomRight = new ScreenPosition { X = topRight.X, Y = bottomLeft.Y };
             var topLeft = new ScreenPosition { X = bottomLeft.X, Y = topRight.Y };
 
-            draw.DrawLine(bottomLeft, bottomRight, selectionBoxOutlineBrush);
-            draw.DrawLine(bottomLeft, topLeft, selectionBoxOutlineBrush);
-            draw.DrawLine(topRight, topLeft, selectionBoxOutlineBrush);
-            draw.DrawLine(topRight, bottomRight, selectionBoxOutlineBrush);
+            draw.DrawLine(bottomLeft, bottomRight, selectionBoxOutlineBrush, ScaleStrokeWidth(3, rp.Player, rp.World));
+            draw.DrawLine(bottomLeft, topLeft, selectionBoxOutlineBrush, ScaleStrokeWidth(3, rp.Player, rp.World));
+            draw.DrawLine(topRight, topLeft, selectionBoxOutlineBrush, ScaleStrokeWidth(3, rp.Player, rp.World));
+            draw.DrawLine(topRight, bottomRight, selectionBoxOutlineBrush, ScaleStrokeWidth(3, rp.Player, rp.World));
             draw.FillRect(box, selectionBoxFillBrush);
+        }
+
+        private float ScaleStrokeWidth(float stroke, Player player, World world)
+        {
+            return (float)Math.Ceiling((stroke * 30) / player.CameraFor(world).Position.Y);
         }
     }
 }

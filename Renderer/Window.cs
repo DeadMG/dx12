@@ -313,6 +313,7 @@ namespace Renderer
             { 0x53, Key.S },
             { 0x44, Key.D },
             { 0x41, Key.A },
+            { 0x10, Key.Shift },
         };
     }
 }

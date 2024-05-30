@@ -65,7 +65,7 @@ namespace Simulation
             foreach (var leftEdge in left.UniqueEdgeDirections)
             foreach (var rightEdge in right.UniqueEdgeDirections)
             {
-                if (HSTSeparated(Vector3.Cross(leftEdge, rightEdge), left, right)) return false;
+                if (HSTSeparated(Vector3.Cross(-leftEdge, rightEdge), left, right)) return false;
             }
 
             return true;

@@ -7,14 +7,14 @@ namespace Renderer
 {
     internal class WorldRenderer
     {
-        internal void Render(RendererParameters rp, World world)
+        internal void Render(RendererParameters rp)
         {
             rp.CommandList.List.SetViewport(new RawViewportF { Width = rp.ScreenSize.Width, Height = rp.ScreenSize.Height, MaxDepth = 1.0f, MinDepth = 0f });
             rp.CommandList.List.SetScissorRectangles(new RawRectangle { Left = 0, Top = 0, Bottom = int.MaxValue, Right = int.MaxValue });
             rp.CommandList.List.SetRenderTargets(new[] { rp.RenderTargetView.Handle }, rp.DepthBuffer.Handle);
             rp.CommandList.SetPipeline(rp.Pipeline);
             rp.CommandList.List.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
-            var byBlueprint = world.Units.ToLookup(u => u.Blueprint);
+            var byBlueprint = rp.World.Units.ToLookup(u => u.Blueprint);
             foreach (var unitGroup in byBlueprint)
             {
                 var unitData = unitGroup

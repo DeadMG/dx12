@@ -14,5 +14,10 @@
         {
             return new ScreenPosition { X = Math.Max(X, other.X), Y = Math.Max(Y, other.Y) };
         }
+
+        public bool Equals(ScreenPosition other)
+        {
+            return other.X == X && other.Y == Y;
+        }
     }
 }

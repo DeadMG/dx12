@@ -1,4 +1,5 @@
 ﻿using Data;
+using Simulation;
 using System.Numerics;
 using Wrapper;
 using Wrapper.Direct3D;
@@ -16,5 +17,8 @@ namespace Renderer
         public required DepthBuffer DepthBuffer { get; init; }
         public required RenderTargetView RenderTargetView { get; init; }
         public required Pipeline Pipeline { get; init; }
+
+        public required Player Player { get; init; }
+        public required World World { get; init; }
     }
 }

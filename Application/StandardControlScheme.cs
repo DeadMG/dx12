@@ -67,7 +67,7 @@ namespace Application
                 player.Selection.Clear();
             }
 
-            if (leftDown != null && mousePos != null)
+            if (leftDown != null && mousePos != null && !leftDown.Equals(mousePos))
             {
                 octree = octree ?? world.CreateOctree();
                 var frustum = camera.Unproject(Space.Clip(mousePos, size), Space.Clip(leftDown, size), size);
@@ -86,6 +86,13 @@ namespace Application
                 var frustum = camera.Unproject(Space.Clip(selection.Start, size), Space.Clip(selection.End, size), size);
                 player.Selection.Clear();
                 octree.Intersect(player.Selection, frustum);
+
+                if (selection.End.Equals(selection.Start) && player.Selection.Count > 1)
+                {
+                    var closest = player.Selection.MinBy(x => (x.Position - camera.Position).Length()); 
+                    player.Selection.Clear();
+                    player.Selection.Add(closest);
+                }
             }
 
             if (rightMouseDownEvent.Consume(out var rightMouseDown))
@@ -95,7 +102,10 @@ namespace Application
                 var order = new MoveOrder { Destination = location.AtY0() };
                 foreach (var unit in player.Selection)
                 {
-                    unit.Orders.Clear();
+                    if (!IsKeyDown(Key.Shift))
+                    {
+                        unit.Orders.Clear();
+                    }
                     unit.Orders.Enqueue(order);
                 }
             }

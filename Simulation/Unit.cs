@@ -19,6 +19,7 @@ namespace Simulation
             this.blueprint = blueprint;
         }
 
+        public float Velocity = 0;
         public Vector3 Position { get { return position; } set { position = value; Clear(); } }
         public Quaternion Orientation { get { return orientation; } set { orientation = value; Clear(); } }
 
@@ -33,27 +34,19 @@ namespace Simulation
             {
                 if (boundingBox != null) return boundingBox.Value;
 
-                float? minX = null;
-                float? maxX = null;
-                float? minY = null;
-                float? maxY = null;
-                float? minZ = null;
-                float? maxZ = null;
+                Vector3? min = null;
+                Vector3? max = null;
 
-                foreach (var vert in Blueprint.Mesh.Vertices.Select(v => Vector3.Transform(v.Position, WorldMatrix)))
+                foreach (var pos in Blueprint.Mesh.Vertices.Select(v => Vector3.Transform(v.Position, WorldMatrix)))
                 {
-                    minX = minX == null ? vert.X : Math.Min(minX.Value, vert.X);
-                    maxX = maxX == null ? vert.X : Math.Max(maxX.Value, vert.X);
-                    minY = minY == null ? vert.Y : Math.Min(minY.Value, vert.Y);
-                    maxY = maxY == null ? vert.Y : Math.Max(minX.Value, vert.Y);
-                    minZ = minZ == null ? vert.Z : Math.Min(minZ.Value, vert.Z);
-                    maxZ = maxZ == null ? vert.Z : Math.Max(maxZ.Value, vert.Z);
+                    min = min == null ? pos : min.Value.Min(pos);
+                    max = max == null ? pos : max.Value.Max(pos);
                 }
 
                 boundingBox = new AABB
                 {
-                    Start = new Vector3(minX.Value, minY.Value, minZ.Value),
-                    End = new Vector3(maxX.Value, maxY.Value, maxZ.Value)
+                    Start = min.Value,
+                    End = max.Value
                 };
                 return boundingBox.Value;
             }

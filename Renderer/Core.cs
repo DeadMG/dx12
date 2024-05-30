@@ -77,14 +77,17 @@ namespace Renderer
                     Pipeline = pipeline,
                     ScreenSize = screenSize,
                     DepthBuffer = depthBuffer,
-                    RenderTargetView = rtv
+                    RenderTargetView = rtv,
+                    Player = player,
+                    World = world,
                 };
 
-                new WorldRenderer().Render(param, world);
+                new WorldRenderer().Render(param);
 
                 var draw = swapChain.BeginDirect2D();
 
-                new UIRenderer().Render(param, player, draw);
+                new OrderRenderer().Render(param, draw);
+                new UIRenderer().Render(param, draw);
 
                 commandList.Execute();
 
