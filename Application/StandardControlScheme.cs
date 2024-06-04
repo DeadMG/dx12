@@ -1,10 +1,10 @@
-﻿using Data;
-using Renderer;
-using SharpDX;
+﻿using Data.Space;
+using Platform.Contracts;
 using Simulation;
+using Simulation.Physics;
 using System.Collections.Concurrent;
-using System.Drawing;
 using System.Numerics;
+using Util;
 
 namespace Application
 {
@@ -12,21 +12,17 @@ namespace Application
     {
         private readonly ConcurrentQueue<MouseWheelEvent> mouseWheelEvents = new ConcurrentQueue<MouseWheelEvent>();
         private readonly ConcurrentDictionary<Key, bool> keyState = new ConcurrentDictionary<Key, bool>();
-        private readonly Latest<ScreenRectangle> selectionEvent = new Latest<ScreenRectangle>();
-        private readonly Latest<ScreenPosition> rightMouseDownEvent = new Latest<ScreenPosition>();
-        private readonly Latest<ScreenPosition> leftMouseDownEvent = new Latest<ScreenPosition>();
-        private readonly Latest<ScreenPosition> mouseMoveEvent = new Latest<ScreenPosition>();
+        private readonly LatestValue<ScreenRectangle> selectionEvent = new LatestValue<ScreenRectangle>();
+        private readonly LatestValue<ScreenPosition> rightMouseDownEvent = new LatestValue<ScreenPosition>();
+        private readonly LatestValue<ScreenPosition> leftMouseDownEvent = new LatestValue<ScreenPosition>();
+        private readonly LatestValue<ScreenPosition> mouseMoveEvent = new LatestValue<ScreenPosition>();
         private readonly Watch inputWatch = new Watch();
-        private readonly Player player;
-        private readonly Game game;
 
-        private volatile ScreenSize viewSize;
+        private readonly UI.Scenario uiState;
 
-        public StandardControlScheme(Player player, Game game, int width, int height)
+        public StandardControlScheme(UI.Scenario uiState)
         {
-            this.player = player;
-            this.game = game;
-            viewSize = new ScreenSize { Height = height, Width = width };
+            this.uiState = uiState;
         }
 
         public float ZoomCameraSensitivity { get; set; } = 1 / (float)10;
@@ -34,14 +30,12 @@ namespace Application
 
         public void Apply()
         {
-            var size = viewSize; // Atomic read
-            var world = player.ViewingWorld(game);
-            var camera = player.CameraFor(world);
+            var camera = uiState.CurrentCamera;
             var time = inputWatch.MarkTime();
 
             while (mouseWheelEvents.TryDequeue(out var wheelEvent))
             {
-                var realLocation = Vector3.Transform(Vector3.Normalize(new Vector3(Space.Clip(wheelEvent.Position, size), wheelEvent.Amount)), camera.Orientation);
+                var realLocation = Vector3.Transform(Vector3.Normalize(new Vector3(Project.Clip(wheelEvent.Position, uiState.ScreenSize), wheelEvent.Amount)), camera.Orientation);
 
                 // Scale the amount depending on the camera Y
                 camera.Position += realLocation * camera.Position.Y * ZoomCameraSensitivity;
@@ -52,55 +46,56 @@ namespace Application
             if (IsKeyDown(Key.A)) { Pan(camera, time, new Vector3(-1, 0, 0)); }
             if (IsKeyDown(Key.D)) { Pan(camera, time, new Vector3(1, 0, 0)); }
 
-            Octree? octree = null;
+            Octree<Unit>? octree = null;
             var mousePos = mouseMoveEvent.Read();
             if (mousePos != null)
             {
-                octree = octree ?? world.CreateOctree();
+                octree = octree ?? new Octree<Unit>(uiState.CurrentVolume.Units, uiState.CurrentVolume.Dimensions);
 
-                player.Hover = At(camera.Unproject(Space.Clip(mousePos, size), size), octree);
+                uiState.Hover = At(uiState.CurrentCamera, Ray.FromScreen(mousePos.Value, uiState.ScreenSize, uiState.CurrentCamera.InvViewProjection), octree);
             }
 
             var leftDown = leftMouseDownEvent.Read();
             if (leftDown != null)
             {
-                player.Selection.Clear();
+                uiState.Selection.Clear();
             }
 
             if (leftDown != null && mousePos != null && !leftDown.Equals(mousePos))
             {
-                octree = octree ?? world.CreateOctree();
-                var frustum = camera.Unproject(Space.Clip(mousePos, size), Space.Clip(leftDown, size), size);
-                player.Highlight.Clear();
-                octree.Intersect(player.Highlight, frustum);
-                player.SelectionBox = new ScreenRectangle { End = mousePos, Start = leftDown };
+                octree = octree ?? new Octree<Unit>(uiState.CurrentVolume.Units, uiState.CurrentVolume.Dimensions);
+
+                var frustum = Frustum.FromScreen(ScreenRectangle.FromPoints(mousePos.Value, leftDown.Value), uiState.ScreenSize, uiState.CurrentCamera.InvViewProjection);
+                uiState.Highlight.Clear();
+                octree.Intersect(uiState.Highlight, frustum);
+                uiState.SelectionBox = new ScreenRectangle { End = mousePos.Value, Start = leftDown.Value };
             }
 
-            if (selectionEvent.Consume(out var selection))
+            if (selectionEvent.TryConsume(out var selection))
             {
-                octree = octree ?? world.CreateOctree();
+                octree = octree ?? new Octree<Unit>(uiState.CurrentVolume.Units, uiState.CurrentVolume.Dimensions);
 
-                player.Highlight.Clear();
-                player.SelectionBox = null;
+                uiState.Highlight.Clear();
+                uiState.SelectionBox = null;
 
-                var frustum = camera.Unproject(Space.Clip(selection.Start, size), Space.Clip(selection.End, size), size);
-                player.Selection.Clear();
-                octree.Intersect(player.Selection, frustum);
+                var frustum = Frustum.FromScreen(selection.Value, uiState.ScreenSize, uiState.CurrentCamera.InvViewProjection);
+                uiState.Selection.Clear();
+                octree.Intersect(uiState.Selection, frustum);
 
-                if (selection.End.Equals(selection.Start) && player.Selection.Count > 1)
+                if (selection.Value.End.Equals(selection.Value.Start) && uiState.Selection.Count > 1)
                 {
-                    var closest = player.Selection.MinBy(x => (x.Position - camera.Position).Length()); 
-                    player.Selection.Clear();
-                    player.Selection.Add(closest);
+                    var closest = uiState.Selection.MinBy(x => (x.Position - camera.Position).Length());
+                    uiState.Selection.Clear();
+                    uiState.Selection.Add(closest);
                 }
             }
 
-            if (rightMouseDownEvent.Consume(out var rightMouseDown))
+            if (rightMouseDownEvent.TryConsume(out var rightMouseDown))
             {
-                var location = camera.Unproject(Space.Clip(rightMouseDown, size), size);
+                var location = Ray.FromScreen(rightMouseDown.Value, uiState.ScreenSize, uiState.CurrentCamera.InvViewProjection);
 
                 var order = new MoveOrder { Destination = location.AtY0() };
-                foreach (var unit in player.Selection)
+                foreach (var unit in uiState.Selection)
                 {
                     if (!IsKeyDown(Key.Shift))
                     {
@@ -131,11 +126,6 @@ namespace Application
             mouseWheelEvents.Enqueue(new MouseWheelEvent { Amount = amount, Position = pos });
         }
 
-        public void OnResize(ScreenSize size)
-        {
-            viewSize = size;
-        }
-
         private bool IsKeyDown(Key key)
         {
             if (keyState.TryGetValue(key, out var state)) return state;
@@ -158,9 +148,9 @@ namespace Application
         {
             if (key == MouseButton.Left)
             {
-                if (leftMouseDownEvent.Consume(out var down))
+                if (leftMouseDownEvent.TryConsume(out var down))
                 {
-                    selectionEvent.Set(new ScreenRectangle { Start = down, End = pos });
+                    selectionEvent.Set(new ScreenRectangle { Start = down.Value, End = pos });
                 }
             }
         }
@@ -170,10 +160,8 @@ namespace Application
             mouseMoveEvent.Set(pos);
         }
 
-        private Unit? At(Ray ray, Octree octree)
+        private Unit? At(Camera camera, Ray ray, Octree<Unit> octree)
         {
-            var world = player.ViewingWorld(game);
-            var camera = player.CameraFor(world);
             var units = octree.Intersect(ray);
 
             if (units.Count == 0) return null;

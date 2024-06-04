@@ -1,5 +1,5 @@
-﻿using Data;
-using Renderer;
+﻿using Data.Space;
+using Platform.Contracts;
 
 namespace Application
 {
@@ -11,8 +11,6 @@ namespace Application
         public void OnMouseDown(MouseButton key, ScreenPosition pos);
         public void OnMouseUp(MouseButton key, ScreenPosition pos);
         public void OnMouseMove(ScreenPosition pos);
-
-        public void OnResize(ScreenSize size);
 
         public void Apply();
     }

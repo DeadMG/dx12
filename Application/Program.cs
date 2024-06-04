@@ -1,43 +1,44 @@
-﻿using Application;
-using Data;
-using Renderer;
+﻿using Data.Space;
+using Platform.Contracts;
 using Simulation;
 using System.Diagnostics;
 using System.Numerics;
+using UI;
 
-namespace Test
+namespace Application
 {
     internal class Program
     {
         static async Task Main(string[] args)
         {
-            await new Initialiser().Run();
+            var platform = new PlatformSelector().GetPlatform();
 
-            var simulation = new Game();
-            var player = simulation.AddPlayer(simulation.AddForce());
-            var controlScheme = new StandardControlScheme(player, simulation, 1, 1);
+            await platform.OneTimeInitialisation();
 
-            var print = new Blueprint
+            var scenario = new Simulation.Scenario();
+            var player = scenario.AddPlayer(scenario.AddForce());
+
+            var print = new Simulation.Blueprint
             {
                 Name = "Hypercraft",
-                Mesh = new Mesh
+                Mesh = new Simulation.Mesh
                 {
                     Vertices =
                     [
-                        new Vertex { Position = new Vector3(3.0f, 0.0f, 0.0f), Colour = new Colour { R = 0, G = 1, B = 0 } },
-                        new Vertex { Position = new Vector3(0.0f, 3.0f, -3.0f), Colour = new Colour { R = 0, G = 0, B = 1 }, }, 
-                        new Vertex { Position = new Vector3(0.0f, 0.0f, 10.0f), Colour = new Colour { R = 1, G = 0, B = 0 }, },
-                        new Vertex { Position = new Vector3(-3.0f, 0.0f, 0.0f), Colour = new Colour { R = 0, G = 1, B = 1 }, },
+                        new Simulation.Vertex { Position = new Vector3(3.0f, 0.0f, 0.0f), Colour = new RGB { R = 0, G = 1, B = 0 } },
+                        new Simulation.Vertex { Position = new Vector3(0.0f, 3.0f, -3.0f), Colour = new RGB { R = 0, G = 0, B = 1 }, }, 
+                        new Simulation.Vertex { Position = new Vector3(0.0f, 0.0f, 10.0f), Colour = new RGB { R = 1, G = 0, B = 0 }, },
+                        new Simulation.Vertex { Position = new Vector3(-3.0f, 0.0f, 0.0f), Colour = new RGB { R = 0, G = 1, B = 1 }, },
                     
                         // left gun
-                        new Vertex { Position = new Vector3(3.2f, -1.0f, -3.0f), Colour = new Colour { R = 0, G = 0, B = 1 }, },
-                        new Vertex { Position = new Vector3(3.2f, -1.0f, 11.0f), Colour = new Colour { R = 0, G = 1, B = 0 }, },
-                        new Vertex { Position = new Vector3(2.0f, 1.0f, 2.0f), Colour = new Colour { R = 1, G = 0, B = 0 }, },
+                        new Simulation.Vertex { Position = new Vector3(3.2f, -1.0f, -3.0f), Colour = new RGB { R = 0, G = 0, B = 1 }, },
+                        new Simulation.Vertex { Position = new Vector3(3.2f, -1.0f, 11.0f), Colour = new RGB { R = 0, G = 1, B = 0 }, },
+                        new Simulation.Vertex { Position = new Vector3(2.0f, 1.0f, 2.0f), Colour = new RGB { R = 1, G = 0, B = 0 }, },
                     
                         // right gun
-                        new Vertex { Position = new Vector3(-3.2f, -1.0f, -3.0f), Colour = new Colour { R = 0, G = 0, B = 1 }, },
-                        new Vertex { Position = new Vector3(-3.2f, -1.0f, 11.0f), Colour = new Colour { R = 0, G = 1, B = 0 }, },
-                        new Vertex { Position = new Vector3(-2.0f, 1.0f, 2.0f), Colour = new Colour { R = 1, G = 0, B = 0 }, },
+                        new Simulation.Vertex { Position = new Vector3(-3.2f, -1.0f, -3.0f), Colour = new RGB { R = 0, G = 0, B = 1 }, },
+                        new Simulation.Vertex { Position = new Vector3(-3.2f, -1.0f, 11.0f), Colour = new RGB { R = 0, G = 1, B = 0 }, },
+                        new Simulation.Vertex { Position = new Vector3(-2.0f, 1.0f, 2.0f), Colour = new RGB { R = 1, G = 0, B = 0 }, },
                     ],
                     Indices =
                     [
@@ -54,30 +55,29 @@ namespace Test
                 TurnRate = (float)Math.PI / 2,
             };
 
-            var world = simulation.AddWorld(new Vector3(100000, 100000, 100000));
+            var volume = scenario.AddVolume(new Vector3(100000, 100000, 100000));
 
-            world.Add(new Unit(player, print, new Vector3(8, 0, 8), Quaternion.Identity));
-            world.Add(new Unit(player, print, new Vector3(-8, 0, 8), Quaternion.Identity));
-            world.Add(new Unit(player, print, new Vector3(-8, 0, -8), Quaternion.Identity));
-            world.Add(new Unit(player, print, new Vector3(8, 0, -8), Quaternion.Identity));
+            volume.Add(new Simulation.Unit(player, print, new Vector3(8, 0, 8), Quaternion.Identity));
+            volume.Add(new Simulation.Unit(player, print, new Vector3(-8, 0, 8), Quaternion.Identity));
+            volume.Add(new Simulation.Unit(player, print, new Vector3(-8, 0, -8), Quaternion.Identity));
+            volume.Add(new Simulation.Unit(player, print, new Vector3(8, 0, -8), Quaternion.Identity));
 
-            player.CameraFor(world).Position = new Vector3(0, 30, 0);
-            player.CameraFor(world).Orientation = Quaternion.CreateFromAxisAngle(new Vector3(1, 0, 0), 90f.ToRadians());
 
+            var window = platform.CreateWindow();
+            var screenSize = await window.GetSize();
+
+            var uiState = new UI.Scenario(screenSize, volume);
+            uiState.CurrentCamera.Position = new Vector3(0, 30, 0);
+            uiState.CurrentCamera.Orientation = Quaternion.CreateFromAxisAngle(new Vector3(1, 0, 0), 90f.ToRadians());
+
+            var controlScheme = new StandardControlScheme(uiState);
             var listener = new WindowListener(controlScheme);
-            var window = new Window() { Listener = listener };
+            window.Listener = listener;
 
-            var hwnd = await window.HWND;
-            var size = await window.InitialSize;
-
-            controlScheme.OnResize(size);
-
-            using (var renderer = new Core(hwnd, size))
+            using (var renderer = await platform.CreateRenderer(window))
             using (var cts = new CancellationTokenSource())
             {
-                await renderer.Load([print]);
-
-                var renderLoop = CoreLoop(renderer, listener, simulation, player, controlScheme, cts.Token);
+                var renderLoop = CoreLoop(renderer, listener, scenario, uiState, controlScheme, cts.Token);
 
                 await window.Closed;
                 cts.Cancel();
@@ -85,10 +85,9 @@ namespace Test
             }
         }
 
-        static async Task CoreLoop(Core core, WindowListener listener, Game simulation, Player player, IControlScheme controlScheme, CancellationToken token)
+        static async Task CoreLoop(IRenderer renderer, WindowListener listener, Simulation.Scenario sim, UI.Scenario ui, IControlScheme controlScheme, CancellationToken token)
         {
             var frameCount = 0;
-
             var simWatch = new Watch();
 
             var renderWatch = new Stopwatch();
@@ -96,36 +95,41 @@ namespace Test
 
             TimeSpan? previousFrame = null;
             var frameDelta = new List<TimeSpan>();
-            while (!token.IsCancellationRequested)
+
+            using (var uiRenderer = new ScenarioRenderer())
             {
-                if (listener.Resize.Consume(out var resize))
+                while (!token.IsCancellationRequested)
                 {
-                    core.Resize(resize);
-                    controlScheme.OnResize(resize);
+                    if (listener.Resize.TryConsume(out var resize))
+                    {
+                        renderer.Resize(resize.Value);
+                        ui.ScreenSize = resize.Value;
+                    }
+
+                    controlScheme.Apply();
+
+                    var renderTask = renderer.Render(ui.CurrentCamera, ui.CurrentVolume, draw => uiRenderer.Render(ui, draw));
+                    await sim.Update(simWatch.MarkTime());
+                    await renderTask;
+
+                    if (previousFrame == null)
+                    {
+                        previousFrame = renderWatch.Elapsed;
+                        frameDelta.Add(previousFrame.Value);
+                    }
+                    else
+                    {
+                        var currentFrame = renderWatch.Elapsed;
+                        frameDelta.Add(currentFrame - previousFrame.Value);
+                        previousFrame = currentFrame;
+                    }
+
+                    frameCount = frameCount + 1;
                 }
-
-                controlScheme.Apply();
-                var renderTask = core.Render(simulation, player);
-                await simulation.Update(simWatch.MarkTime());
-                await renderTask;
-
-                if (previousFrame == null)
-                {
-                    previousFrame = renderWatch.Elapsed;
-                    frameDelta.Add(previousFrame.Value);
-                } else
-                {
-                    var currentFrame = renderWatch.Elapsed;
-                    frameDelta.Add(currentFrame - previousFrame.Value);
-                    previousFrame = currentFrame;
-                }
-
-                frameCount = frameCount + 1;
             }
 
             Debug.Write($"FPS: {frameCount / renderWatch.Elapsed.TotalSeconds}\n");
-            Debug.Write($"UPS: {simulation.Rate.Ticks / renderWatch.Elapsed.TotalSeconds}\n");
-            new Debugging().ReportLiveObjects();
+            Debug.Write($"UPS: {sim.Rate.Ticks / renderWatch.Elapsed.TotalSeconds}\n");
         }
     }
 }

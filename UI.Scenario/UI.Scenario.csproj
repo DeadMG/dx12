@@ -1,18 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RootNamespace>UI</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Simulation.Physics\Simulation.Physics.csproj" />
+    <ProjectReference Include="..\Data.Space\Data.Space.csproj" />
     <ProjectReference Include="..\Platform.Contracts\Platform.Contracts.csproj" />
-    <ProjectReference Include="..\Platform.Windows\Platform.Windows.csproj" />
     <ProjectReference Include="..\Simulation.Scenario\Simulation.Scenario.csproj" />
-    <ProjectReference Include="..\UI.Scenario\UI.Scenario.csproj" />
+    <ProjectReference Include="..\Simulation.Physics\Simulation.Physics.csproj" />
   </ItemGroup>
 
 </Project>

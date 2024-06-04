@@ -1,5 +1,6 @@
-﻿using Data;
-using Renderer;
+﻿using Data.Space;
+using Platform.Contracts;
+using Util;
 
 namespace Application
 {
@@ -21,6 +22,6 @@ namespace Application
 
         public void OnResize(ScreenSize size) => Resize.Set(size);
 
-        public readonly Latest<ScreenSize> Resize = new Latest<ScreenSize>();
+        public readonly LatestValue<ScreenSize> Resize = new LatestValue<ScreenSize>();
     }
 }
