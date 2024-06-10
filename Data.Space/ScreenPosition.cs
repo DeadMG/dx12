@@ -16,5 +16,9 @@
         {
             return new ScreenPosition(Math.Max(0, Math.Min(X, size.Width)), Math.Max(0, Math.Min(Y, size.Height)));
         }
+
+        public static ScreenPosition operator -(ScreenPosition left, ScreenPosition right) => new ScreenPosition(left.X - right.X, left.Y - right.Y);
+        public static ScreenPosition operator +(ScreenPosition left, ScreenPosition right) => new ScreenPosition(left.X + right.X, left.Y + right.Y);
+        public static ScreenPosition operator *(ScreenPosition left, float amount) => new ScreenPosition((int)Math.Round(left.X * amount), (int)Math.Round(left.Y * amount));
     }
 }

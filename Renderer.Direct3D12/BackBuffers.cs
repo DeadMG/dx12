@@ -31,7 +31,7 @@ namespace Renderer.Direct3D12
                 unsafe
                 {
                     device.CreateRenderTargetView(backBuffer, null, handle);
-
+                    
                     on12.CreateWrappedResource(backBuffer,
                         new SharpDX.Direct3D11.D3D11ResourceFlags { BindFlags = (int)SharpDX.Direct3D11.BindFlags.RenderTarget },
                         (int)SharpDX.Direct3D12.ResourceStates.RenderTarget,

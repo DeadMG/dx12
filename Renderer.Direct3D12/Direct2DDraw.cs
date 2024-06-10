@@ -6,10 +6,14 @@ namespace Renderer.Direct3D12
     public class Direct2DDraw : IDraw
     {
         private readonly SharpDX.Direct2D1.DeviceContext deviceContext;
+        private readonly SharpDX.Direct2D1.Factory1 factory1;
+        private ScreenSize screenSize;
 
-        public Direct2DDraw(SharpDX.Direct2D1.DeviceContext deviceContext)
+        public Direct2DDraw(SharpDX.Direct2D1.Factory1 factory1, SharpDX.Direct2D1.DeviceContext deviceContext, ScreenSize screenSize)
         {
             this.deviceContext = deviceContext;
+            this.screenSize = screenSize;
+            this.factory1 = factory1;
         }
 
         public IBrush GetOrCreateSolidBrush(IBrush? existing, RGBA colour)
@@ -20,18 +24,42 @@ namespace Renderer.Direct3D12
             return new SolidBrushWrapper { Colour = colour, Brush = new SharpDX.Direct2D1.SolidColorBrush(deviceContext, colour.AsColour4()) };
         }
 
-        public void DrawLine(ScreenPosition start, ScreenPosition end, IBrush brush, float strokeWidth = 1)
+        public void DrawLine(ScreenLine line, IBrush brush, float strokeWidth = 1)
         {
             if (!(brush is NativeBrushWrapper wrapper)) throw new InvalidOperationException();
 
-            deviceContext.DrawLine(start.AsRawVector2(), end.AsRawVector2(), wrapper.Brush, strokeWidth);
+            deviceContext.DrawLine(line.Start.AsRawVector2(), line.End.AsRawVector2(), wrapper.Brush, strokeWidth);
         }
 
         public void FillRect(ScreenRectangle rect, IBrush brush)
         {
             if (!(brush is NativeBrushWrapper wrapper)) throw new InvalidOperationException();
 
-            deviceContext.FillRectangle(rect.AsRawRectangleF(), wrapper.Brush);
+            deviceContext.FillRectangle(rect.Clamp(screenSize).AsRawRectangleF(), wrapper.Brush);
+        }
+
+        public void Resize(ScreenSize screenSize)
+        {
+            this.screenSize = screenSize;
+        }
+
+        public void FillGeometry(ScreenPosition[] vertices, IBrush brush)
+        {
+            if (!(brush is NativeBrushWrapper wrapper)) throw new InvalidOperationException();
+
+            using (var geometry = new SharpDX.Direct2D1.PathGeometry(factory1))
+            {
+                using (var sink = geometry.Open())
+                {
+                    sink.SetFillMode(SharpDX.Direct2D1.FillMode.Winding);
+                    sink.BeginFigure(vertices[0].Clamp(screenSize).AsRawVector2(), SharpDX.Direct2D1.FigureBegin.Filled);
+                    sink.AddLines(vertices.Skip(1).Select(s => s.Clamp(screenSize).AsRawVector2()).ToArray());
+                    sink.EndFigure(SharpDX.Direct2D1.FigureEnd.Closed);
+                    sink.Close();
+                }
+
+                deviceContext.FillGeometry(geometry, wrapper.Brush);
+            }
         }
 
         private class NativeBrushWrapper : IBrush

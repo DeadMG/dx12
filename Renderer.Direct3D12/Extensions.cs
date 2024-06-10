@@ -4,6 +4,7 @@ namespace Renderer.Direct3D12
 {
     public static class Extensions
     {
+        // Convert from "straight" alpha to "premultiplied" alpha
         public static SharpDX.Mathematics.Interop.RawColor4 AsColour4(this RGBA colour)
         {
             return new SharpDX.Mathematics.Interop.RawColor4(colour.R * colour.A, colour.G * colour.A, colour.B * colour.A, colour.A);

@@ -1,7 +1,6 @@
 ﻿using Data.Space;
 using Platform.Contracts;
 using SharpDX.Mathematics.Interop;
-using Simulation;
 using System.Runtime.InteropServices;
 using Util;
 
@@ -19,6 +18,7 @@ namespace Renderer.Direct3D12
         private readonly SharpDX.Direct3D12.DescriptorHeap renderTargetHeap;
         private readonly SharpDX.Direct2D1.DeviceContext deviceContext;
         private readonly SharpDX.Direct3D12.DescriptorHeap depthStencilHeap;
+        private readonly SharpDX.Direct2D1.Factory1 factory1;
         private readonly VolumeRenderer volumeRenderer;
         private readonly Direct2DDraw draw;
 
@@ -61,6 +61,17 @@ namespace Renderer.Direct3D12
                     infoQueue?.SetBreakOnSeverity(SharpDX.Direct3D12.MessageSeverity.Corruption, true);
                     infoQueue?.SetBreakOnSeverity(SharpDX.Direct3D12.MessageSeverity.Error, true);
                     infoQueue?.SetBreakOnSeverity(SharpDX.Direct3D12.MessageSeverity.Warning, true);
+                    infoQueue?.PushStorageFilter(new SharpDX.Direct3D12.InfoQueueFilter
+                    {
+                        AllowList = new SharpDX.Direct3D12.InfoQueueFilterDescription
+                        {
+                        },
+                        DenyList = new SharpDX.Direct3D12.InfoQueueFilterDescription
+                        {
+                            Ids = new [] { SharpDX.Direct3D12.MessageId.ClearrendertargetviewMismatchingclearvalue },
+                            Severities = new [] { SharpDX.Direct3D12.MessageSeverity.Information }
+                        }
+                    });
                 }
 
                 directCommandQueue = disposeTracker.Track(new CommandListPool(device, device.CreateCommandQueue(new SharpDX.Direct3D12.CommandQueueDescription
@@ -102,9 +113,10 @@ namespace Renderer.Direct3D12
 
             device11 = disposeTracker.Track(SharpDX.Direct3D11.Device.CreateFromDirect3D12(device, SharpDX.Direct3D11.DeviceCreationFlags.BgraSupport | SharpDX.Direct3D11.DeviceCreationFlags.Debug, null, null, [directCommandQueue.Queue]));
             on12 = disposeTracker.Track(device11.QueryInterface<SharpDX.Direct3D11.Device11On12>());
+            factory1 = disposeTracker.Track(new SharpDX.Direct2D1.Factory1(SharpDX.Direct2D1.FactoryType.MultiThreaded, SharpDX.Direct2D1.DebugLevel.Warning));
 
             using (var dxgiDevice = device11.QueryInterface<SharpDX.DXGI.Device>())
-            using (var device2d = new SharpDX.Direct2D1.Device(dxgiDevice, new SharpDX.Direct2D1.CreationProperties { DebugLevel = SharpDX.Direct2D1.DebugLevel.Warning }))
+            using (var device2d = new SharpDX.Direct2D1.Device(factory1, dxgiDevice))
             {
                 deviceContext = disposeTracker.Track(new SharpDX.Direct2D1.DeviceContext(device2d, SharpDX.Direct2D1.DeviceContextOptions.EnableMultithreadedOptimizations));
             }
@@ -122,7 +134,7 @@ namespace Renderer.Direct3D12
 
             volumeRenderer = new VolumeRenderer(device, directCommandQueue, swapChain.Description1.Format);
 
-            draw = new Direct2DDraw(deviceContext);
+            draw = new Direct2DDraw(factory1, deviceContext, size);
         }
 
         public void Resize(ScreenSize size)
@@ -140,9 +152,11 @@ namespace Renderer.Direct3D12
 
             backBuffers = new BackBuffers(device, renderTargetHeap, swapChain, on12, deviceContext, device11);
             depthBuffer = new DepthBuffer(device, size, depthStencilHeap.CPUDescriptorHandleForHeapStart);
+
+            draw.Resize(size);
         }
 
-        public async Task Render(Camera camera, Volume volume, Action<IDraw> uiRenderer)
+        public async Task Render(VolumeRenderTask? volumeRender, Action<IDraw> uiRenderer)
         {
             var currentBuffer = backBuffers.targetViews[swapChain.CurrentBackBufferIndex];
 
@@ -154,15 +168,16 @@ namespace Renderer.Direct3D12
 
             using (var tracker = new DisposeTracker())
             {
-                volumeRenderer.Render(new RendererParameters
+                if (volumeRender != null)
                 {
-                    DepthBuffer = depthStencilHeap.CPUDescriptorHandleForHeapStart,
-                    Camera = camera,
-                    Tracker = tracker,
-                    RenderTargetView = currentBuffer.DescriptorHandle,
-                    ScreenSize = new ScreenSize(swapChain.Description1.Width, swapChain.Description1.Height),
-                    Volume = volume
-                });
+                    volumeRenderer.Render(new RendererParameters
+                    {
+                        DepthBuffer = depthStencilHeap.CPUDescriptorHandleForHeapStart,
+                        Tracker = tracker,
+                        RenderTargetView = currentBuffer.DescriptorHandle,
+                        ScreenSize = new ScreenSize(swapChain.Description1.Width, swapChain.Description1.Height),
+                    }, volumeRender.Volume, volumeRender.Camera);
+                }
 
                 on12.AcquireWrappedResources(new[] { backBuffers.wrappedResources[swapChain.CurrentBackBufferIndex] }, 1);
                 

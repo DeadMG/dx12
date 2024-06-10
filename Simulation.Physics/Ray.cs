@@ -14,8 +14,13 @@ namespace Simulation.Physics
 
         public static Ray FromScreen(ScreenPosition position, ScreenSize screenSize, Matrix4x4 invProjection)
         {
-            return Ray.FromPoints(Project.World(new Vector3(Project.Clip(position, screenSize), 0f), invProjection),
-                Project.World(new Vector3(Project.Clip(position, screenSize), 1f), invProjection));
+            return Ray.FromClip(Project.Clip(position, screenSize), invProjection);
+        }
+
+        public static Ray FromClip(Vector2 position, Matrix4x4 invProjection)
+        {
+            return Ray.FromPoints(Project.World(new Vector3(position, 0f), invProjection),
+                Project.World(new Vector3(position, 1f), invProjection));
         }
 
         public Vector3 AtY0()
@@ -23,6 +28,12 @@ namespace Simulation.Physics
             var direction = Vector3.Normalize(Start - End);
             direction = direction / direction.Y;
             return Start - (direction * Start.Y);
+        }
+
+        public Vector3 AtDistance(float distance)
+        {
+            var direction = Vector3.Normalize(Start - End);
+            return Start + (direction * distance);
         }
     }
 }

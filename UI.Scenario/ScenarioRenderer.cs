@@ -16,7 +16,7 @@ namespace UI
             HighlightRenderer.RenderHighlight(scenario.CurrentCamera, scenario.Highlight, draw);
             HoverRenderer.RenderHover(scenario.CurrentCamera, scenario.Hover, draw);
             OrderRenderer.Render(scenario.CurrentCamera, scenario.CurrentVolume, draw);
-            if (scenario.SelectionBox != null) SelectionBoxRenderer.RenderSelectionBox(scenario.CurrentCamera, scenario.SelectionBox.Value, draw);
+            if (scenario.SelectionBox != null) SelectionBoxRenderer.RenderSelectionBox(scenario.SelectionBox.Value, draw);
             SelectionRenderer.RenderSelection(scenario.CurrentCamera, scenario.Selection, draw);
         }
 

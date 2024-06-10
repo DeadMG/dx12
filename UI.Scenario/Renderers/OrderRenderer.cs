@@ -50,7 +50,9 @@ namespace UI.Renderers
                         var screenStart = Project.Screen(averageOrigin, camera.ViewProjection, camera.ScreenSize);
                         var screenEnd = Project.Screen(move.Destination, camera.ViewProjection, camera.ScreenSize);
 
-                        draw.DrawLine(screenStart, screenEnd, brush, StrokeWidth.Scale(100, camera));
+                        var distance = (camera.Position - averageOrigin).Length();
+
+                        draw.DrawLine(new ScreenLine(screenStart, screenEnd), brush, 600 / distance);
                     }
                 }
 
@@ -61,7 +63,9 @@ namespace UI.Renderers
                         var screenStart = Project.Screen(orderOrigin.Destination, camera.ViewProjection, camera.ScreenSize);
                         var screenEnd = Project.Screen(move.Destination, camera.ViewProjection, camera.ScreenSize);
 
-                        draw.DrawLine(screenStart, screenEnd, brush, StrokeWidth.Scale(100, camera));
+                        var distance = (camera.Position - orderOrigin.Destination).Length();
+
+                        draw.DrawLine(new ScreenLine(screenStart, screenEnd), brush, 600 / distance);
                     }
                 }
             }

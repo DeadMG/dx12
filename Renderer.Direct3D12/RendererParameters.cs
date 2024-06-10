@@ -1,6 +1,5 @@
 ﻿using Data.Space;
 using SharpDX.Direct3D12;
-using Simulation;
 using Util;
 
 namespace Renderer
@@ -12,8 +11,5 @@ namespace Renderer
 
         public required CpuDescriptorHandle DepthBuffer { get; init; }
         public required CpuDescriptorHandle RenderTargetView { get; init; }
-
-        public required Camera Camera { get; init; }
-        public required Volume Volume { get; init; }
     }
 }

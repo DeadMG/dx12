@@ -108,7 +108,7 @@ namespace Application
 
                     controlScheme.Apply();
 
-                    var renderTask = renderer.Render(ui.CurrentCamera, ui.CurrentVolume, draw => uiRenderer.Render(ui, draw));
+                    var renderTask = renderer.Render(new VolumeRenderTask { Camera = ui.CurrentCamera, Volume = ui.CurrentVolume }, draw => uiRenderer.Render(ui, draw));
                     await sim.Update(simWatch.MarkTime());
                     await renderTask;
 

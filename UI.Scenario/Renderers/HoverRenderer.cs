@@ -6,6 +6,8 @@ namespace UI.Renderers
 {
     public class HoverRenderer : IDisposable
     {
+        private readonly UnitHighlightRenderer highlightRenderer = new UnitHighlightRenderer();
+
         private IBrush? brush;
 
         public RGBA HoverLineColour = new RGBA { B = 1, G = 1, R = 1, A = 1 };
@@ -22,10 +24,7 @@ namespace UI.Renderers
             var width = Math.Abs(box.End.X - box.Start.X) / 10;
             var height = Math.Abs(box.End.Y - box.Start.Y) / 10;
 
-            draw.DrawLine(box.Start, new ScreenPosition { X = box.Start.X + width, Y = box.Start.Y }, brush, StrokeWidth.Scale(3, camera));
-            draw.DrawLine(box.Start, new ScreenPosition { X = box.Start.X, Y = box.Start.Y + height }, brush, StrokeWidth.Scale(3, camera));
-            draw.DrawLine(box.End, new ScreenPosition { X = box.End.X - width, Y = box.End.Y }, brush, StrokeWidth.Scale(3, camera));
-            draw.DrawLine(box.End, new ScreenPosition { X = box.End.X, Y = box.End.Y - height }, brush, StrokeWidth.Scale(3, camera));
+            highlightRenderer.Render(hover, camera, brush, draw);
         }
 
         public void Dispose()

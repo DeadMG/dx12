@@ -12,6 +12,7 @@
     <ProjectReference Include="..\Platform.Contracts\Platform.Contracts.csproj" />
     <ProjectReference Include="..\Simulation.Scenario\Simulation.Scenario.csproj" />
     <ProjectReference Include="..\Simulation.Physics\Simulation.Physics.csproj" />
+    <ProjectReference Include="..\Util\Util.csproj" />
   </ItemGroup>
 
 </Project>

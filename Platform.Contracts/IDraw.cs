@@ -6,7 +6,8 @@ namespace Platform.Contracts
     {
         public IBrush GetOrCreateSolidBrush(IBrush? existing, RGBA colour);
 
-        public void DrawLine(ScreenPosition start, ScreenPosition end, IBrush brush, float strokeWidth = 1);
+        public void DrawLine(ScreenLine line, IBrush brush, float strokeWidth = 1);
         public void FillRect(ScreenRectangle rect, IBrush brush);
+        public void FillGeometry(ScreenPosition[] vertices, IBrush brush);
     }
 }

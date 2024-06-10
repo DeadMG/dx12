@@ -13,12 +13,10 @@ namespace Renderer.Direct3D12
 
         private readonly SharpDX.Direct3D12.PipelineState state;
         private readonly SharpDX.Direct3D12.RootSignature signature;
-        private readonly SharpDX.Direct3D12.Device device;
         private readonly CommandListPool directListPool;
 
         public VolumeRenderer(SharpDX.Direct3D12.Device device, CommandListPool directListPool, SharpDX.DXGI.Format renderTargetFormat)
         {
-            this.device = device;
             this.directListPool = directListPool;
 
             resourceCache = disposeTracker.Track(new ResourceCache(device));
@@ -29,7 +27,7 @@ namespace Renderer.Direct3D12
                 | SharpDX.Direct3D12.RootSignatureFlags.DenyGeometryShaderRootAccess
                 | SharpDX.Direct3D12.RootSignatureFlags.DenyPixelShaderRootAccess;
 
-            var parameter = new SharpDX.Direct3D12.RootParameter1(SharpDX.Direct3D12.ShaderVisibility.Vertex, new SharpDX.Direct3D12.RootConstants(0, 0, Marshal.SizeOf<System.Numerics.Matrix4x4>() / 4));
+            var parameter = new SharpDX.Direct3D12.RootParameter1(SharpDX.Direct3D12.ShaderVisibility.Vertex, new SharpDX.Direct3D12.RootConstants(0, 0, Marshal.SizeOf<Matrix4x4>() / 4));
             var signatureDesc = new SharpDX.Direct3D12.RootSignatureDescription1(flags, new[] { parameter });
 
             signature = disposeTracker.Track(device.CreateRootSignature(signatureDesc.Serialize()));
@@ -84,9 +82,9 @@ namespace Renderer.Direct3D12
             state = disposeTracker.Track(device.CreateGraphicsPipelineState(desc));
         }
 
-        public void Render(RendererParameters rp)
+        public void Render(RendererParameters rp, Volume volume, Camera camera)
         {
-            if (rp.Volume == null) return;
+            if (volume == null) return;
 
             var entry = directListPool.GetCommandList();
 
@@ -97,7 +95,7 @@ namespace Renderer.Direct3D12
             entry.List.SetGraphicsRootSignature(signature);
             entry.List.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
 
-            var byBlueprint = rp.Volume.Units.ToLookup(u => u.Blueprint);
+            var byBlueprint = volume.Units.ToLookup(u => u.Blueprint);
             foreach (var unitGroup in byBlueprint)
             {
                 var unitData = unitGroup
@@ -125,7 +123,7 @@ namespace Renderer.Direct3D12
                     BufferLocation = meshData.IndexBuffer.GPUVirtualAddress,
                     Format = SharpDX.DXGI.Format.R16_UInt
                 });
-                entry.List.SetGraphicsRoot32BitConstants(0, rp.Camera.ViewProjection);
+                entry.List.SetGraphicsRoot32BitConstants(0, camera.ViewProjection);
                 entry.List.DrawIndexedInstanced(unitGroup.Key.Mesh.Indices.Length, unitData.Length, 0, 0, 0);
             }
 

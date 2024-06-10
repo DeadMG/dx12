@@ -1,6 +1,4 @@
-﻿using System.Numerics;
-
-namespace Data.Space
+﻿namespace Data.Space
 {
     // Expected to be normalised, i.e. start is top left, end is bottom right
     public readonly record struct ScreenRectangle(ScreenPosition Start, ScreenPosition End)
