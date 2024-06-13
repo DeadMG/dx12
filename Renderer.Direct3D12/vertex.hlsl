@@ -1,6 +1,7 @@
 struct VertexPosColor
 {
     float3 Position : POSITION;
+    float3 Normal : NORMAL;
     float3 Color : COLOR;
     float4x4 ModelMatrix : INSTANCE_TRANSFORM;
 };

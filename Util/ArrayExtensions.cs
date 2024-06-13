@@ -1,14 +1,13 @@
-﻿using System.Collections;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 namespace Util
 {
     public static class ArrayExtensions
     {
-        public static int SizeOf<T>(this T[] array)
+        public static uint SizeOf<T>(this T[] array)
             where T: unmanaged
         {
-            return Marshal.SizeOf<T>() * array.Length;
+            return (uint)(Marshal.SizeOf<T>() * array.Length);
         }
 
         public static Dispose<T> DisposeAll<T>(this T[] array)

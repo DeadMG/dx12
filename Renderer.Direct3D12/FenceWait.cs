@@ -4,10 +4,10 @@ namespace Renderer.Direct3D12
 {
     public class FenceWait
     {
-        private readonly SharpDX.Direct3D12.Fence fence;
-        private readonly long waitValue;
+        private readonly Vortice.Direct3D12.ID3D12Fence fence;
+        private readonly ulong waitValue;
 
-        public FenceWait(SharpDX.Direct3D12.Fence fence, long waitValue)
+        public FenceWait(Vortice.Direct3D12.ID3D12Fence fence, ulong waitValue)
         {
             this.fence = fence;
             this.waitValue = waitValue;

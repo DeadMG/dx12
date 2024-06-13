@@ -5,25 +5,25 @@ namespace Renderer.Direct3D12
     public class CommandListPool : IDisposable
     {
         private readonly DisposeTracker tracker = new DisposeTracker();
-        private readonly Queue<SharpDX.Direct3D12.GraphicsCommandList> commandLists = new Queue<SharpDX.Direct3D12.GraphicsCommandList>();
+        private readonly Queue<Vortice.Direct3D12.ID3D12GraphicsCommandList> commandLists = new Queue<Vortice.Direct3D12.ID3D12GraphicsCommandList>();
         private readonly Queue<CommandAllocatorEntry> commandAllocators = new Queue<CommandAllocatorEntry>();
         private readonly object queueLock = new object();
 
-        protected readonly SharpDX.Direct3D12.Fence fence;
-        protected readonly SharpDX.Direct3D12.Device device;
-        protected readonly SharpDX.Direct3D12.CommandQueue queue;
+        protected readonly Vortice.Direct3D12.ID3D12Fence fence;
+        protected readonly Vortice.Direct3D12.ID3D12Device5 device;
+        protected readonly Vortice.Direct3D12.ID3D12CommandQueue queue;
 
-        private long fenceValue = 0;
+        private ulong fenceValue = 0;
 
-        internal CommandListPool(SharpDX.Direct3D12.Device device, SharpDX.Direct3D12.CommandQueue queue)
+        internal CommandListPool(Vortice.Direct3D12.ID3D12Device5 device, Vortice.Direct3D12.ID3D12CommandQueue queue)
         {
             this.device = device;
             this.queue = tracker.Track(queue);
-            this.fence = tracker.Track(device.CreateFence(0, SharpDX.Direct3D12.FenceFlags.None));
+            this.fence = tracker.Track(device.CreateFence(0, Vortice.Direct3D12.FenceFlags.None));
         }
 
-        public SharpDX.Direct3D12.CommandQueue Queue => queue;
-        public SharpDX.Direct3D12.Device Device => device;
+        public Vortice.Direct3D12.ID3D12CommandQueue Queue => queue;
+        public Vortice.Direct3D12.ID3D12Device5 Device => device;
 
         public FenceWait Wait()
         {
@@ -43,7 +43,7 @@ namespace Renderer.Direct3D12
 
                 if (!commandLists.TryDequeue(out var commandList))
                 {
-                    commandList = tracker.Track(device.CreateCommandList(queue.Description.Type, allocator, null));
+                    commandList = tracker.Track(device.CreateCommandList<Vortice.Direct3D12.ID3D12GraphicsCommandList>(queue.GetDescription().Type, allocator, null));
                 }
                 else
                 {
@@ -54,7 +54,7 @@ namespace Renderer.Direct3D12
             }
         }
 
-        public FenceWait Execute(SharpDX.Direct3D12.GraphicsCommandList list, SharpDX.Direct3D12.CommandAllocator allocator)
+        public FenceWait Execute(Vortice.Direct3D12.ID3D12GraphicsCommandList list, Vortice.Direct3D12.ID3D12CommandAllocator allocator)
         {
             list.Close();
 
@@ -70,14 +70,14 @@ namespace Renderer.Direct3D12
             return new FenceWait(fence, waitValue);
         }
 
-        private long Signal()
+        private ulong Signal()
         {
             var waitValue = Interlocked.Increment(ref fenceValue);
             queue.Signal(fence, waitValue);
             return waitValue;
         }
 
-        private SharpDX.Direct3D12.CommandAllocator DequeueAllocator()
+        private Vortice.Direct3D12.ID3D12CommandAllocator DequeueAllocator()
         {
             if (commandAllocators.TryPeek(out var entry))
             {
@@ -89,7 +89,7 @@ namespace Renderer.Direct3D12
                 }
             }
 
-            return tracker.Track(device.CreateCommandAllocator(queue.Description.Type));
+            return tracker.Track(device.CreateCommandAllocator(queue.GetDescription().Type));
         }
 
         public void Dispose()
@@ -97,7 +97,7 @@ namespace Renderer.Direct3D12
             tracker.Dispose();
         }
 
-        private record class CommandAllocatorEntry(long FenceId, SharpDX.Direct3D12.CommandAllocator Allocator)
+        private record class CommandAllocatorEntry(ulong FenceId, Vortice.Direct3D12.ID3D12CommandAllocator Allocator)
         {
         }
     }

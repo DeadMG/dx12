@@ -5,30 +5,36 @@ namespace Renderer.Direct3D12
 {
     public class ResourceCache : IDisposable
     {
+        private readonly VertexCalculator vertexCalculator = new VertexCalculator();
         private readonly DisposeTracker disposeTracker = new DisposeTracker();
-        private readonly SharpDX.Direct3D12.Device device;
         private readonly Dictionary<Blueprint, BlueprintData> cache = new Dictionary<Blueprint, BlueprintData>();
 
-        public ResourceCache(SharpDX.Direct3D12.Device device)
+        private readonly Vortice.Direct3D12.ID3D12Device5 device;
+        private readonly bool supportsRaytracing;
+
+        public ResourceCache(Vortice.Direct3D12.ID3D12Device5 device, bool supportsRaytracing)
         {
             this.device = device;
+            this.supportsRaytracing = supportsRaytracing;
         }
 
         public BlueprintData For(Blueprint blueprint, PooledCommandList list)
         {
             if (cache.ContainsKey(blueprint)) return cache[blueprint];
 
-            var vertexBuffer = disposeTracker.Track(device.CreateStaticBuffer(blueprint.Mesh.Vertices.SizeOf()));
-            var indexBuffer = disposeTracker.Track(device.CreateStaticBuffer(blueprint.Mesh.Indices.SizeOf()));
+            var verts = vertexCalculator.CalculateVertices(blueprint.Mesh);
 
-            cache[blueprint] = new BlueprintData
+            var data = new BlueprintData
             {
-                VertexBuffer = vertexBuffer,
-                IndexBuffer = indexBuffer
+                VertexBuffer = disposeTracker.Track(device.CreateStaticBuffer(verts.SizeOf())),
+                IndexBuffer = disposeTracker.Track(device.CreateStaticBuffer(blueprint.Mesh.Indices.SizeOf())),
+                Raytracing = PrepareRaytracing(blueprint, list)
             };
 
-            list.UploadData(vertexBuffer, blueprint.Mesh.Vertices);
-            list.UploadData(indexBuffer, blueprint.Mesh.Indices);
+            cache[blueprint] = data;
+
+            list.UploadData(data.VertexBuffer, verts);
+            list.UploadData(data.IndexBuffer, blueprint.Mesh.Indices);
 
             return cache[blueprint];
         }
@@ -38,10 +44,23 @@ namespace Renderer.Direct3D12
             disposeTracker.Dispose();
         }
 
+        private RaytracingData? PrepareRaytracing(Blueprint blueprint, PooledCommandList list)
+        {
+            if (!supportsRaytracing) return null;
+
+            return null;
+        }
+
         public class BlueprintData
         {
-            public required SharpDX.Direct3D12.Resource VertexBuffer { get; init; }
-            public required SharpDX.Direct3D12.Resource IndexBuffer { get; init; }
+            public required Vortice.Direct3D12.ID3D12Resource VertexBuffer { get; init; }
+            public required Vortice.Direct3D12.ID3D12Resource IndexBuffer { get; init; }
+            public required RaytracingData? Raytracing { get; init; }
+        }
+
+        public class RaytracingData
+        {
+
         }
     }
 }

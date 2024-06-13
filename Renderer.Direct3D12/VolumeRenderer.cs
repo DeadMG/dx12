@@ -1,5 +1,4 @@
-﻿using SharpDX.Mathematics.Interop;
-using Simulation;
+﻿using Simulation;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Util;
@@ -11,73 +10,78 @@ namespace Renderer.Direct3D12
         private readonly DisposeTracker disposeTracker = new DisposeTracker();
         private readonly ResourceCache resourceCache;
 
-        private readonly SharpDX.Direct3D12.PipelineState state;
-        private readonly SharpDX.Direct3D12.RootSignature signature;
+        private readonly Vortice.Direct3D12.ID3D12PipelineState state;
+        private readonly Vortice.Direct3D12.ID3D12RootSignature signature;
         private readonly CommandListPool directListPool;
 
-        public VolumeRenderer(SharpDX.Direct3D12.Device device, CommandListPool directListPool, SharpDX.DXGI.Format renderTargetFormat)
+        public VolumeRenderer(Vortice.Direct3D12.ID3D12Device5 device, CommandListPool directListPool, bool supportsRaytracing, Vortice.DXGI.Format renderTargetFormat)
         {
             this.directListPool = directListPool;
 
-            resourceCache = disposeTracker.Track(new ResourceCache(device));
+            resourceCache = disposeTracker.Track(new ResourceCache(device, supportsRaytracing));
 
-            var flags = SharpDX.Direct3D12.RootSignatureFlags.AllowInputAssemblerInputLayout
-                | SharpDX.Direct3D12.RootSignatureFlags.DenyHullShaderRootAccess
-                | SharpDX.Direct3D12.RootSignatureFlags.DenyDomainShaderRootAccess
-                | SharpDX.Direct3D12.RootSignatureFlags.DenyGeometryShaderRootAccess
-                | SharpDX.Direct3D12.RootSignatureFlags.DenyPixelShaderRootAccess;
+            var flags = Vortice.Direct3D12.RootSignatureFlags.AllowInputAssemblerInputLayout
+                | Vortice.Direct3D12.RootSignatureFlags.DenyHullShaderRootAccess
+                | Vortice.Direct3D12.RootSignatureFlags.DenyDomainShaderRootAccess
+                | Vortice.Direct3D12.RootSignatureFlags.DenyGeometryShaderRootAccess
+                | Vortice.Direct3D12.RootSignatureFlags.DenyPixelShaderRootAccess;
 
-            var parameter = new SharpDX.Direct3D12.RootParameter1(SharpDX.Direct3D12.ShaderVisibility.Vertex, new SharpDX.Direct3D12.RootConstants(0, 0, Marshal.SizeOf<Matrix4x4>() / 4));
-            var signatureDesc = new SharpDX.Direct3D12.RootSignatureDescription1(flags, new[] { parameter });
+            var parameter = new Vortice.Direct3D12.RootParameter1(new Vortice.Direct3D12.RootConstants(0, 0, Marshal.SizeOf<Matrix4x4>() / 4), Vortice.Direct3D12.ShaderVisibility.Vertex);
+            var signatureDesc = new Vortice.Direct3D12.RootSignatureDescription1(flags, new[] { parameter });
 
-            signature = disposeTracker.Track(device.CreateRootSignature(signatureDesc.Serialize()));
-
-            var desc = new SharpDX.Direct3D12.GraphicsPipelineStateDescription
+            signature = disposeTracker.Track(device.CreateRootSignature(signatureDesc));
+            
+            var desc = new Vortice.Direct3D12.GraphicsPipelineStateDescription
             {
-                PrimitiveTopologyType = SharpDX.Direct3D12.PrimitiveTopologyType.Triangle,
-                DepthStencilFormat = SharpDX.DXGI.Format.D32_Float,
+                PrimitiveTopologyType = Vortice.Direct3D12.PrimitiveTopologyType.Triangle,
+                DepthStencilFormat = Vortice.DXGI.Format.D32_Float,
                 RootSignature = signature,
                 PixelShader = Shader.Load("pixel.hlsl", "main", "ps_5_1"),
                 VertexShader = Shader.Load("vertex.hlsl", "main", "vs_5_1"),
-                RenderTargetCount = 1,
-                InputLayout = new SharpDX.Direct3D12.InputLayoutDescription([
-                    new SharpDX.Direct3D12.InputElement("POSITION", 0, SharpDX.DXGI.Format.R32G32B32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 0, SharpDX.Direct3D12.InputClassification.PerVertexData, 0),
-                    new SharpDX.Direct3D12.InputElement("COLOR", 0, SharpDX.DXGI.Format.R32G32B32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 0, SharpDX.Direct3D12.InputClassification.PerVertexData, 0),
-                    new SharpDX.Direct3D12.InputElement("INSTANCE_TRANSFORM", 0, SharpDX.DXGI.Format.R32G32B32A32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 1, SharpDX.Direct3D12.InputClassification.PerInstanceData, 1),
-                    new SharpDX.Direct3D12.InputElement("INSTANCE_TRANSFORM", 1, SharpDX.DXGI.Format.R32G32B32A32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 1, SharpDX.Direct3D12.InputClassification.PerInstanceData, 1),
-                    new SharpDX.Direct3D12.InputElement("INSTANCE_TRANSFORM", 2, SharpDX.DXGI.Format.R32G32B32A32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 1, SharpDX.Direct3D12.InputClassification.PerInstanceData, 1),
-                    new SharpDX.Direct3D12.InputElement("INSTANCE_TRANSFORM", 3, SharpDX.DXGI.Format.R32G32B32A32_Float, SharpDX.Direct3D12.InputElement.AppendAligned, 1, SharpDX.Direct3D12.InputClassification.PerInstanceData, 1),
+                RenderTargetFormats = [renderTargetFormat],
+                InputLayout = new Vortice.Direct3D12.InputLayoutDescription([
+                    new Vortice.Direct3D12.InputElementDescription("POSITION", 0, Vortice.DXGI.Format.R32G32B32_Float, Vortice.Direct3D12.InputElementDescription.AppendAligned, 0, Vortice.Direct3D12.InputClassification.PerVertexData, 0),
+                    new Vortice.Direct3D12.InputElementDescription("NORMAL", 0, Vortice.DXGI.Format.R32G32B32_Float, Vortice.Direct3D12.InputElementDescription.AppendAligned, 0, Vortice.Direct3D12.InputClassification.PerVertexData, 0),
+                    new Vortice.Direct3D12.InputElementDescription("COLOR", 0, Vortice.DXGI.Format.R32G32B32_Float, Vortice.Direct3D12.InputElementDescription.AppendAligned, 0, Vortice.Direct3D12.InputClassification.PerVertexData, 0),
+                    new Vortice.Direct3D12.InputElementDescription("INSTANCE_TRANSFORM", 0, Vortice.DXGI.Format.R32G32B32A32_Float, Vortice.Direct3D12.InputElementDescription.AppendAligned, 1, Vortice.Direct3D12.InputClassification.PerInstanceData, 1),
+                    new Vortice.Direct3D12.InputElementDescription("INSTANCE_TRANSFORM", 1, Vortice.DXGI.Format.R32G32B32A32_Float, Vortice.Direct3D12.InputElementDescription.AppendAligned, 1, Vortice.Direct3D12.InputClassification.PerInstanceData, 1),
+                    new Vortice.Direct3D12.InputElementDescription("INSTANCE_TRANSFORM", 2, Vortice.DXGI.Format.R32G32B32A32_Float, Vortice.Direct3D12.InputElementDescription.AppendAligned, 1, Vortice.Direct3D12.InputClassification.PerInstanceData, 1),
+                    new Vortice.Direct3D12.InputElementDescription("INSTANCE_TRANSFORM", 3, Vortice.DXGI.Format.R32G32B32A32_Float, Vortice.Direct3D12.InputElementDescription.AppendAligned, 1, Vortice.Direct3D12.InputClassification.PerInstanceData, 1),
                 ]),
-                DepthStencilState = new SharpDX.Direct3D12.DepthStencilStateDescription
+                DepthStencilState = new Vortice.Direct3D12.DepthStencilDescription
                 {
-                    DepthComparison = SharpDX.Direct3D12.Comparison.Less,
-                    IsDepthEnabled = true,
-                    DepthWriteMask = SharpDX.Direct3D12.DepthWriteMask.All,
-                    IsStencilEnabled = false,
+                    DepthFunc = Vortice.Direct3D12.ComparisonFunction.Less,
+                    DepthEnable = true,
+                    DepthWriteMask = Vortice.Direct3D12.DepthWriteMask.All,
+                    StencilEnable = false,
                 },
-                SampleMask = -1,
-                StreamOutput = new SharpDX.Direct3D12.StreamOutputDescription { Elements = new SharpDX.Direct3D12.StreamOutputElement[0], Strides = new int[0] },
-                RasterizerState = new SharpDX.Direct3D12.RasterizerStateDescription
+                SampleMask = 0xFFFFFFFF,
+                StreamOutput = new Vortice.Direct3D12.StreamOutputDescription { Elements = new Vortice.Direct3D12.StreamOutputElement[0], Strides = new uint[0] },
+                RasterizerState = new Vortice.Direct3D12.RasterizerDescription
                 {
-                    FillMode = SharpDX.Direct3D12.FillMode.Solid,
-                    CullMode = SharpDX.Direct3D12.CullMode.None,
+                    FillMode = Vortice.Direct3D12.FillMode.Solid,
+                    CullMode = Vortice.Direct3D12.CullMode.None,
                     ForcedSampleCount = 0,
-                    IsDepthClipEnabled = true,
+                    DepthClipEnable = true,
                 },
-                BlendState = new SharpDX.Direct3D12.BlendStateDescription
+                BlendState = new Vortice.Direct3D12.BlendDescription
                 {
                     AlphaToCoverageEnable = false,
                     IndependentBlendEnable = false,
+                    RenderTarget = new Vortice.Direct3D12.BlendDescription.RenderTarget__FixedBuffer
+                    {
+                        e0 = new Vortice.Direct3D12.RenderTargetBlendDescription
+                        {
+                            RenderTargetWriteMask = Vortice.Direct3D12.ColorWriteEnable.All
+                        }
+                    }
                 },
-                SampleDescription = new SharpDX.DXGI.SampleDescription
+                SampleDescription = new Vortice.DXGI.SampleDescription
                 {
                     Count = 1,
                     Quality = 0
                 },
             };
-
-            desc.BlendState.RenderTarget[0].RenderTargetWriteMask = SharpDX.Direct3D12.ColorWriteMaskFlags.All;
-            desc.RenderTargetFormats[0] = renderTargetFormat;
 
             state = disposeTracker.Track(device.CreateGraphicsPipelineState(desc));
         }
@@ -88,12 +92,12 @@ namespace Renderer.Direct3D12
 
             var entry = directListPool.GetCommandList();
 
-            entry.List.SetViewport(new RawViewportF { Width = rp.ScreenSize.Width, Height = rp.ScreenSize.Height, MaxDepth = 1.0f, MinDepth = 0f });
-            entry.List.SetScissorRectangles(new RawRectangle { Left = 0, Top = 0, Bottom = int.MaxValue, Right = int.MaxValue });
-            entry.List.SetRenderTargets(new[] { rp.RenderTargetView }, rp.DepthBuffer);
-            entry.List.PipelineState = state;
+            entry.List.RSSetViewport(new Vortice.Mathematics.Viewport { Width = rp.ScreenSize.Width, Height = rp.ScreenSize.Height, MaxDepth = 1.0f, MinDepth = 0f });
+            entry.List.RSSetScissorRects(new Vortice.RawRect(0, 0, int.MaxValue, int.MaxValue));
+            entry.List.OMSetRenderTargets(new[] { rp.RenderTargetView }, rp.DepthBuffer);
+            entry.List.SetPipelineState(state);
             entry.List.SetGraphicsRootSignature(signature);
-            entry.List.PrimitiveTopology = SharpDX.Direct3D.PrimitiveTopology.TriangleList;
+            entry.List.IASetPrimitiveTopology(Vortice.Direct3D.PrimitiveTopology.TriangleList);
 
             var byBlueprint = volume.Units.ToLookup(u => u.Blueprint);
             foreach (var unitGroup in byBlueprint)
@@ -105,25 +109,25 @@ namespace Renderer.Direct3D12
                 var meshData = resourceCache.For(unitGroup.Key, entry);
                 var instanceBuffer = rp.Tracker.Track(entry.CreateUploadBuffer(unitData));
 
-                entry.List.SetVertexBuffer(0, new SharpDX.Direct3D12.VertexBufferView
+                entry.List.IASetVertexBuffers(0, new Vortice.Direct3D12.VertexBufferView
                 {
-                    SizeInBytes = Marshal.SizeOf<Vertex>() * unitGroup.Key.Mesh.Vertices.Length,
+                    SizeInBytes = Marshal.SizeOf<ComputedVertex>() * unitGroup.Key.Mesh.Vertices.Length,
                     BufferLocation = meshData.VertexBuffer.GPUVirtualAddress,
-                    StrideInBytes = Marshal.SizeOf<Vertex>()
+                    StrideInBytes = Marshal.SizeOf<ComputedVertex>()
                 });
-                entry.List.SetVertexBuffer(1, new SharpDX.Direct3D12.VertexBufferView
+                entry.List.IASetVertexBuffers(1, new Vortice.Direct3D12.VertexBufferView
                 {
                     SizeInBytes = Marshal.SizeOf<Matrix4x4>() * unitData.Length,
                     BufferLocation = instanceBuffer.GPUVirtualAddress,
                     StrideInBytes = Marshal.SizeOf<Matrix4x4>()
                 });
-                entry.List.SetIndexBuffer(new SharpDX.Direct3D12.IndexBufferView
+                entry.List.IASetIndexBuffer(new Vortice.Direct3D12.IndexBufferView
                 {
                     SizeInBytes = Marshal.SizeOf<short>() * unitGroup.Key.Mesh.Indices.Length,
                     BufferLocation = meshData.IndexBuffer.GPUVirtualAddress,
-                    Format = SharpDX.DXGI.Format.R16_UInt
+                    Format = Vortice.DXGI.Format.R16_UInt
                 });
-                entry.List.SetGraphicsRoot32BitConstants(0, camera.ViewProjection);
+                entry.List.SetGraphicsRoot32BitConstants(0, camera.ViewProjection, 0);
                 entry.List.DrawIndexedInstanced(unitGroup.Key.Mesh.Indices.Length, unitData.Length, 0, 0, 0);
             }
 

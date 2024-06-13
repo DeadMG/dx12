@@ -1,4 +1,6 @@
-﻿namespace Data.Space
+﻿using System.Numerics;
+
+namespace Data.Space
 {
     public readonly record struct ScreenPosition(int X, int Y)
     {
@@ -15,6 +17,11 @@
         public ScreenPosition Clamp(ScreenSize size)
         {
             return new ScreenPosition(Math.Max(0, Math.Min(X, size.Width)), Math.Max(0, Math.Min(Y, size.Height)));
+        }
+
+        public Vector2 AsVector()
+        {
+            return new Vector2(X, Y);
         }
 
         public static ScreenPosition operator -(ScreenPosition left, ScreenPosition right) => new ScreenPosition(left.X - right.X, left.Y - right.Y);

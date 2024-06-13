@@ -5,27 +5,33 @@ namespace Renderer.Direct3D12
     public static class Extensions
     {
         // Convert from "straight" alpha to "premultiplied" alpha
-        public static SharpDX.Mathematics.Interop.RawColor4 AsColour4(this RGBA colour)
+        public static Vortice.Mathematics.Color AsColour4(this RGBA colour)
         {
-            return new SharpDX.Mathematics.Interop.RawColor4(colour.R * colour.A, colour.G * colour.A, colour.B * colour.A, colour.A);
+            return new Vortice.Mathematics.Color(colour.R * colour.A, colour.G * colour.A, colour.B * colour.A, colour.A);
         }
 
-        public static SharpDX.Mathematics.Interop.RawVector2 AsRawVector2(this ScreenPosition pos)
+        public static Vortice.Mathematics.Rect AsRawRectangleF(this ScreenRectangle rect)
         {
-            return new SharpDX.Mathematics.Interop.RawVector2 { X = pos.X, Y = pos.Y };
+            return new Vortice.Mathematics.Rect { Top = rect.Start.Y, Left = rect.Start.X, Right = rect.End.X, Bottom = rect.End.Y };
         }
 
-        public static SharpDX.Mathematics.Interop.RawRectangleF AsRawRectangleF(this ScreenRectangle rect)
+        public static Vortice.DXGI.IDXGIAdapter1[] GetAdapters(this Vortice.DXGI.IDXGIFactory5 factory)
         {
-            return new SharpDX.Mathematics.Interop.RawRectangleF { Top = rect.Start.Y, Left = rect.Start.X, Right = rect.End.X, Bottom = rect.End.Y };
+            var result = new List<Vortice.DXGI.IDXGIAdapter1>();
+            for (int index = 0; factory.EnumAdapters1(index, out var adapter).Success; index++)
+            {
+                result.Add(adapter);
+            }
+
+            return result.ToArray();
         }
 
-        public static SharpDX.Direct3D12.Resource CreateStaticBuffer(this SharpDX.Direct3D12.Device device, int size)
+        public static Vortice.Direct3D12.ID3D12Resource CreateStaticBuffer(this Vortice.Direct3D12.ID3D12Device5 device, uint size)
         {
-            return device.CreateCommittedResource(new SharpDX.Direct3D12.HeapProperties(SharpDX.Direct3D12.HeapType.Default),
-                SharpDX.Direct3D12.HeapFlags.None,
-                SharpDX.Direct3D12.ResourceDescription.Buffer(new SharpDX.Direct3D12.ResourceAllocationInformation { Alignment = 65536, SizeInBytes = size }),
-                SharpDX.Direct3D12.ResourceStates.Common);
+            return device.CreateCommittedResource(new Vortice.Direct3D12.HeapProperties(Vortice.Direct3D12.HeapType.Default),
+                Vortice.Direct3D12.HeapFlags.None,
+                Vortice.Direct3D12.ResourceDescription.Buffer(new Vortice.Direct3D12.ResourceAllocationInfo { Alignment = 65536, SizeInBytes = size }),
+                Vortice.Direct3D12.ResourceStates.Common);
         }
     }
 }

@@ -2,18 +2,14 @@
 {
     public class Shader
     {
-        public static SharpDX.Direct3D12.ShaderBytecode Load(string filename, string entryPoint, string profile)
+        public static ReadOnlyMemory<byte> Load(string filename, string entryPoint, string profile)
         {
-            using (var bytecode = SharpDX.D3DCompiler.ShaderBytecode.Compile(
-                File.ReadAllText(filename),
+            return Vortice.D3DCompiler.Compiler.CompileFromFile(
+                filename,
                 entryPoint,
                 profile,
-                SharpDX.D3DCompiler.ShaderFlags.None,
-                SharpDX.D3DCompiler.EffectFlags.None,
-                filename))
-            {
-                return new SharpDX.Direct3D12.ShaderBytecode(bytecode);
-            }
+                Vortice.D3DCompiler.ShaderFlags.None,
+                Vortice.D3DCompiler.EffectFlags.None);
         }
     }
 }

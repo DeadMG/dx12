@@ -1,5 +1,5 @@
 ﻿using Data.Space;
-using SharpDX.Direct3D12;
+using Vortice.Direct3D12;
 using Util;
 
 namespace Renderer
