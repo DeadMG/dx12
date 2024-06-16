@@ -5,7 +5,7 @@ using Util;
 
 namespace Renderer.Direct3D12
 {
-    public class VolumeRenderer : IDisposable
+    internal class VolumeRenderer : IDisposable
     {
         private readonly DisposeTracker disposeTracker = new DisposeTracker();
         private readonly ResourceCache resourceCache;
@@ -14,11 +14,10 @@ namespace Renderer.Direct3D12
         private readonly Vortice.Direct3D12.ID3D12RootSignature signature;
         private readonly CommandListPool directListPool;
 
-        public VolumeRenderer(Vortice.Direct3D12.ID3D12Device5 device, CommandListPool directListPool, bool supportsRaytracing, Vortice.DXGI.Format renderTargetFormat)
+        public VolumeRenderer(Vortice.Direct3D12.ID3D12Device5 device, CommandListPool directListPool, ResourceCache resourceCache, Vortice.DXGI.Format renderTargetFormat)
         {
             this.directListPool = directListPool;
-
-            resourceCache = disposeTracker.Track(new ResourceCache(device, supportsRaytracing));
+            this.resourceCache = resourceCache;
 
             var flags = Vortice.Direct3D12.RootSignatureFlags.AllowInputAssemblerInputLayout
                 | Vortice.Direct3D12.RootSignatureFlags.DenyHullShaderRootAccess
@@ -29,15 +28,15 @@ namespace Renderer.Direct3D12
             var parameter = new Vortice.Direct3D12.RootParameter1(new Vortice.Direct3D12.RootConstants(0, 0, Marshal.SizeOf<Matrix4x4>() / 4), Vortice.Direct3D12.ShaderVisibility.Vertex);
             var signatureDesc = new Vortice.Direct3D12.RootSignatureDescription1(flags, new[] { parameter });
 
-            signature = disposeTracker.Track(device.CreateRootSignature(signatureDesc));
+            signature = disposeTracker.Track(device.CreateRootSignature(signatureDesc).Name("Rasteriser root signature"));
             
             var desc = new Vortice.Direct3D12.GraphicsPipelineStateDescription
             {
                 PrimitiveTopologyType = Vortice.Direct3D12.PrimitiveTopologyType.Triangle,
                 DepthStencilFormat = Vortice.DXGI.Format.D32_Float,
                 RootSignature = signature,
-                PixelShader = Shader.Load("pixel.hlsl", "main", "ps_5_1"),
-                VertexShader = Shader.Load("vertex.hlsl", "main", "vs_5_1"),
+                PixelShader = Shader.Load("raster.hlsl", "pixel", "ps_5_1"),
+                VertexShader = Shader.Load("raster.hlsl", "vertex", "vs_5_1"),
                 RenderTargetFormats = [renderTargetFormat],
                 InputLayout = new Vortice.Direct3D12.InputLayoutDescription([
                     new Vortice.Direct3D12.InputElementDescription("POSITION", 0, Vortice.DXGI.Format.R32G32B32_Float, Vortice.Direct3D12.InputElementDescription.AppendAligned, 0, Vortice.Direct3D12.InputClassification.PerVertexData, 0),
@@ -83,7 +82,7 @@ namespace Renderer.Direct3D12
                 },
             };
 
-            state = disposeTracker.Track(device.CreateGraphicsPipelineState(desc));
+            state = disposeTracker.Track(device.CreateGraphicsPipelineState(desc).Name("Rasteriser pipeline state"));
         }
 
         public void Render(RendererParameters rp, Volume volume, Camera camera)
@@ -94,7 +93,7 @@ namespace Renderer.Direct3D12
 
             entry.List.RSSetViewport(new Vortice.Mathematics.Viewport { Width = rp.ScreenSize.Width, Height = rp.ScreenSize.Height, MaxDepth = 1.0f, MinDepth = 0f });
             entry.List.RSSetScissorRects(new Vortice.RawRect(0, 0, int.MaxValue, int.MaxValue));
-            entry.List.OMSetRenderTargets(new[] { rp.RenderTargetView }, rp.DepthBuffer);
+            entry.List.OMSetRenderTargets(new[] { rp.RenderTargetDescriptor }, rp.DepthBuffer);
             entry.List.SetPipelineState(state);
             entry.List.SetGraphicsRootSignature(signature);
             entry.List.IASetPrimitiveTopology(Vortice.Direct3D.PrimitiveTopology.TriangleList);
@@ -106,26 +105,26 @@ namespace Renderer.Direct3D12
                     .Select(x => x.WorldMatrix)
                     .ToArray();
 
-                var meshData = resourceCache.For(unitGroup.Key, entry);
-                var instanceBuffer = rp.Tracker.Track(entry.CreateUploadBuffer(unitData));
+                var meshData = resourceCache.For(unitGroup.Key, entry, false);
+                var instanceBuffer = entry.DisposeAfterExecution(entry.CreateUploadBuffer(unitData));
 
                 entry.List.IASetVertexBuffers(0, new Vortice.Direct3D12.VertexBufferView
                 {
-                    SizeInBytes = Marshal.SizeOf<ComputedVertex>() * unitGroup.Key.Mesh.Vertices.Length,
+                    SizeInBytes = (int)meshData.VertexBufferSize,
                     BufferLocation = meshData.VertexBuffer.GPUVirtualAddress,
-                    StrideInBytes = Marshal.SizeOf<ComputedVertex>()
+                    StrideInBytes = (int)meshData.VertexBufferStride,
                 });
                 entry.List.IASetVertexBuffers(1, new Vortice.Direct3D12.VertexBufferView
                 {
-                    SizeInBytes = Marshal.SizeOf<Matrix4x4>() * unitData.Length,
+                    SizeInBytes = (int)unitData.SizeOf(),
                     BufferLocation = instanceBuffer.GPUVirtualAddress,
                     StrideInBytes = Marshal.SizeOf<Matrix4x4>()
                 });
                 entry.List.IASetIndexBuffer(new Vortice.Direct3D12.IndexBufferView
                 {
-                    SizeInBytes = Marshal.SizeOf<short>() * unitGroup.Key.Mesh.Indices.Length,
+                    SizeInBytes = (int)meshData.IndexBufferSize,
                     BufferLocation = meshData.IndexBuffer.GPUVirtualAddress,
-                    Format = Vortice.DXGI.Format.R16_UInt
+                    Format = meshData.IndexBufferFormat
                 });
                 entry.List.SetGraphicsRoot32BitConstants(0, camera.ViewProjection, 0);
                 entry.List.DrawIndexedInstanced(unitGroup.Key.Mesh.Indices.Length, unitData.Length, 0, 0, 0);

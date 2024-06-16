@@ -2,7 +2,7 @@
 
 namespace Renderer.Direct3D12
 {
-    public static class Extensions
+    internal static class Extensions
     {
         // Convert from "straight" alpha to "premultiplied" alpha
         public static Vortice.Mathematics.Color AsColour4(this RGBA colour)
@@ -12,7 +12,7 @@ namespace Renderer.Direct3D12
 
         public static Vortice.Mathematics.Rect AsRawRectangleF(this ScreenRectangle rect)
         {
-            return new Vortice.Mathematics.Rect { Top = rect.Start.Y, Left = rect.Start.X, Right = rect.End.X, Bottom = rect.End.Y };
+            return new Vortice.Mathematics.Rect(rect.Start.X, rect.Start.Y, rect.End.X - rect.Start.X, rect.End.Y - rect.Start.Y);
         }
 
         public static Vortice.DXGI.IDXGIAdapter1[] GetAdapters(this Vortice.DXGI.IDXGIFactory5 factory)
@@ -26,12 +26,20 @@ namespace Renderer.Direct3D12
             return result.ToArray();
         }
 
-        public static Vortice.Direct3D12.ID3D12Resource CreateStaticBuffer(this Vortice.Direct3D12.ID3D12Device5 device, uint size)
+        public static Vortice.Direct3D12.CpuDescriptorHandle CPU(this Vortice.Direct3D12.ID3D12DescriptorHeap heap, int amount)
         {
-            return device.CreateCommittedResource(new Vortice.Direct3D12.HeapProperties(Vortice.Direct3D12.HeapType.Default),
-                Vortice.Direct3D12.HeapFlags.None,
-                Vortice.Direct3D12.ResourceDescription.Buffer(new Vortice.Direct3D12.ResourceAllocationInfo { Alignment = 65536, SizeInBytes = size }),
-                Vortice.Direct3D12.ResourceStates.Common);
+            using (var device = heap.GetDevice<Vortice.Direct3D12.ID3D12Device>())
+            {
+                return heap.GetCPUDescriptorHandleForHeapStart().Offset(amount, device.GetDescriptorHandleIncrementSize(heap.Description.Type));
+            }
+        }
+
+        public static Vortice.Direct3D12.GpuDescriptorHandle GPU(this Vortice.Direct3D12.ID3D12DescriptorHeap heap, int amount)
+        {
+            using (var device = heap.GetDevice<Vortice.Direct3D12.ID3D12Device>())
+            {
+                return heap.GetGPUDescriptorHandleForHeapStart().Offset(amount, device.GetDescriptorHandleIncrementSize(heap.Description.Type));
+            }
         }
     }
 }

@@ -27,6 +27,8 @@ namespace Simulation
 
         public Matrix4x4 ViewProjection { get; private set; }
         public Matrix4x4 InvViewProjection { get; private set; }
+        public Matrix4x4 InvView { get; private set; }
+        public Matrix4x4 InvProjection { get; private set; }
 
         public void Resize(ScreenSize newSize)
         {
@@ -38,12 +40,30 @@ namespace Simulation
         private void CreateProjectionMatrices()
         {
             var viewMatrix = Matrix4x4.CreateLookAtLeftHanded(Position, Position + Vector3.Transform(new Vector3(0, 0, 1), Orientation), Vector3.Transform(new Vector3(0, 1, 0), Orientation));
-            var projMatrix = Matrix4x4.CreatePerspectiveFieldOfViewLeftHanded(Fov.ToRadians(), (float)size.Width / size.Height, 1f, float.PositiveInfinity);
+            var projMatrix = Matrix4x4.CreatePerspectiveFieldOfViewLeftHanded(Fov.ToRadians(), (float)size.Width / size.Height, 1f, 1000);
             ViewProjection = viewMatrix * projMatrix;
 
             if (Matrix4x4.Invert(ViewProjection, out var unprojection))
             {
                 InvViewProjection = unprojection;
+            }
+            else
+            {
+                throw new InvalidOperationException();
+            }
+
+            if (Matrix4x4.Invert(viewMatrix, out var invView))
+            {
+                InvView = invView;
+            }
+            else
+            {
+                throw new InvalidOperationException();
+            }
+
+            if (Matrix4x4.Invert(projMatrix, out var invProj))
+            {
+                InvProjection = invProj;
             }
             else
             {

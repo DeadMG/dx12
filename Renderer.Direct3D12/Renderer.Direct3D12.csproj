@@ -8,15 +8,19 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="pixel.hlsl" />
-    <None Remove="vertex.hlsl" />
+    <None Remove="hit.hlsl" />
+    <None Remove="raster.hlsl" />
+    <None Remove="raytrace.hlsl" />
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="pixel.hlsl">
+    <Content Include="hit.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="vertex.hlsl">
+    <Content Include="raster.hlsl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="raytrace.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
@@ -26,6 +30,7 @@
     <PackageReference Include="Vortice.Direct2D1" Version="3.5.0" />
     <PackageReference Include="Vortice.Direct3D11" Version="3.5.0" />
     <PackageReference Include="Vortice.Direct3D12" Version="3.5.0" />
+    <PackageReference Include="Vortice.Dxc" Version="3.5.0" />
   </ItemGroup>
 
   <ItemGroup>

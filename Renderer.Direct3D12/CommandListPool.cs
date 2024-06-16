@@ -2,10 +2,10 @@
 
 namespace Renderer.Direct3D12
 {
-    public class CommandListPool : IDisposable
+    internal class CommandListPool : IDisposable
     {
         private readonly DisposeTracker tracker = new DisposeTracker();
-        private readonly Queue<Vortice.Direct3D12.ID3D12GraphicsCommandList> commandLists = new Queue<Vortice.Direct3D12.ID3D12GraphicsCommandList>();
+        private readonly Queue<Vortice.Direct3D12.ID3D12GraphicsCommandList4> commandLists = new Queue<Vortice.Direct3D12.ID3D12GraphicsCommandList4>();
         private readonly Queue<CommandAllocatorEntry> commandAllocators = new Queue<CommandAllocatorEntry>();
         private readonly object queueLock = new object();
 
@@ -19,7 +19,7 @@ namespace Renderer.Direct3D12
         {
             this.device = device;
             this.queue = tracker.Track(queue);
-            this.fence = tracker.Track(device.CreateFence(0, Vortice.Direct3D12.FenceFlags.None));
+            this.fence = tracker.Track(device.CreateFence(0, Vortice.Direct3D12.FenceFlags.None).Name($"Fence for {queue.Name}"));
         }
 
         public Vortice.Direct3D12.ID3D12CommandQueue Queue => queue;
@@ -43,7 +43,7 @@ namespace Renderer.Direct3D12
 
                 if (!commandLists.TryDequeue(out var commandList))
                 {
-                    commandList = tracker.Track(device.CreateCommandList<Vortice.Direct3D12.ID3D12GraphicsCommandList>(queue.GetDescription().Type, allocator, null));
+                    commandList = tracker.Track(device.CreateCommandList<Vortice.Direct3D12.ID3D12GraphicsCommandList4>(queue.GetDescription().Type, allocator, null).Name($"Command list for {queue.Name}"));
                 }
                 else
                 {
@@ -54,7 +54,7 @@ namespace Renderer.Direct3D12
             }
         }
 
-        public FenceWait Execute(Vortice.Direct3D12.ID3D12GraphicsCommandList list, Vortice.Direct3D12.ID3D12CommandAllocator allocator)
+        public FenceWait Execute(Vortice.Direct3D12.ID3D12GraphicsCommandList4 list, Vortice.Direct3D12.ID3D12CommandAllocator allocator)
         {
             list.Close();
 
@@ -89,7 +89,7 @@ namespace Renderer.Direct3D12
                 }
             }
 
-            return tracker.Track(device.CreateCommandAllocator(queue.GetDescription().Type));
+            return tracker.Track(device.CreateCommandAllocator(queue.GetDescription().Type).Name($"Command allocator for {queue.Name}"));
         }
 
         public void Dispose()

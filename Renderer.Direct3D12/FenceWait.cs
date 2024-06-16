@@ -2,7 +2,7 @@
 
 namespace Renderer.Direct3D12
 {
-    public class FenceWait
+    internal class FenceWait
     {
         private readonly Vortice.Direct3D12.ID3D12Fence fence;
         private readonly ulong waitValue;

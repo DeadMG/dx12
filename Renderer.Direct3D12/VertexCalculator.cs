@@ -20,9 +20,9 @@ namespace Renderer.Direct3D12
 
                 var weightedNormal = Plane.CreateFromVertices(a, b, c).Normal * (float)area;
 
-                normals[chunk[0]] += weightedNormal;
-                normals[chunk[1]] += weightedNormal;
-                normals[chunk[2]] += weightedNormal;
+                normals[(int)chunk[0]] += weightedNormal;
+                normals[(int)chunk[1]] += weightedNormal;
+                normals[(int)chunk[2]] += weightedNormal;
             }
 
             return mesh.Vertices

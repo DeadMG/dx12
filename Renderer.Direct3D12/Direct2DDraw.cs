@@ -3,7 +3,7 @@ using Platform.Contracts;
 
 namespace Renderer.Direct3D12
 {
-    public class Direct2DDraw : IDraw
+    internal class Direct2DDraw : IDraw
     {
         private readonly Vortice.Direct2D1.ID2D1DeviceContext deviceContext;
         private readonly Vortice.Direct2D1.ID2D1Factory1 factory1;

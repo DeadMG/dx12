@@ -19,7 +19,7 @@ struct VertexShaderOutput
 
 ConstantBuffer<ModelViewProjection> ModelViewProjectionCB : register(b0);
 
-VertexShaderOutput main(VertexPosColor IN)
+VertexShaderOutput vertex(VertexPosColor IN)
 {
     VertexShaderOutput OUT;
     
@@ -27,4 +27,14 @@ VertexShaderOutput main(VertexPosColor IN)
     OUT.Color = float4(IN.Color, 1.0f);
  
     return OUT;
+}
+
+struct PixelShaderInput
+{
+    float4 Color : COLOR;
+};
+ 
+float4 pixel(PixelShaderInput IN) : SV_Target
+{
+    return IN.Color;
 }

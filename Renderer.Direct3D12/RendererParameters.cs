@@ -1,15 +1,13 @@
 ﻿using Data.Space;
-using Vortice.Direct3D12;
-using Util;
 
 namespace Renderer
 {
-    public class RendererParameters
+    internal class RendererParameters
     {
-        public required DisposeTracker Tracker { get; init; }
         public required ScreenSize ScreenSize { get; init; }
 
-        public required CpuDescriptorHandle DepthBuffer { get; init; }
-        public required CpuDescriptorHandle RenderTargetView { get; init; }
+        public required Vortice.Direct3D12.CpuDescriptorHandle DepthBuffer { get; init; }
+        public required Vortice.Direct3D12.CpuDescriptorHandle RenderTargetDescriptor { get; init; }
+        public required Vortice.Direct3D12.ID3D12Resource RenderTarget { get; init; }
     }
 }
