@@ -19,6 +19,7 @@ namespace Renderer.Direct3D12
         private readonly Vortice.Direct3D12.ID3D12DescriptorHeap srvUavHeap;
         private readonly Vortice.Direct3D12.ID3D12RootSignature rayGenSignature;
         private readonly Vortice.Direct3D12.ID3D12RootSignature hitSignature;
+        private readonly Vortice.Direct3D12.ID3D12RootSignature emptyGlobalSignature;
         private readonly Vortice.Direct3D12.ID3D12RootSignature emptySignature;
         private readonly Vortice.Direct3D12.ID3D12StateObject state;
         private readonly StateObjectProperties stateObjectProperties;
@@ -32,8 +33,6 @@ namespace Renderer.Direct3D12
             this.device = device;
             this.renderTargetFormat = renderTargetFormat;
 
-            var flags = Vortice.Direct3D12.RootSignatureFlags.LocalRootSignature;
-
             var tableParameter = new Vortice.Direct3D12.RootParameter1(
                 new Vortice.Direct3D12.RootDescriptorTable1(
                     new Vortice.Direct3D12.DescriptorRange1(Vortice.Direct3D12.DescriptorRangeType.UnorderedAccessView, 1, 0),
@@ -41,13 +40,14 @@ namespace Renderer.Direct3D12
                     new Vortice.Direct3D12.DescriptorRange1(Vortice.Direct3D12.DescriptorRangeType.ConstantBufferView, 1, 0)),
                 Vortice.Direct3D12.ShaderVisibility.All);
 
-            rayGenSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(flags, [tableParameter])).Name("Ray gen root signature"));
+            rayGenSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(Vortice.Direct3D12.RootSignatureFlags.LocalRootSignature, [tableParameter])).Name("Ray gen root signature"));
 
             var verticesParameter = new Vortice.Direct3D12.RootParameter1(Vortice.Direct3D12.RootParameterType.ShaderResourceView, new Vortice.Direct3D12.RootDescriptor1 { ShaderRegister = 0 }, Vortice.Direct3D12.ShaderVisibility.All);
             var indicesParameter = new Vortice.Direct3D12.RootParameter1(Vortice.Direct3D12.RootParameterType.ShaderResourceView, new Vortice.Direct3D12.RootDescriptor1 { ShaderRegister = 1 }, Vortice.Direct3D12.ShaderVisibility.All);
 
-            hitSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(flags, [verticesParameter, indicesParameter])).Name("Hit signature"));
-            emptySignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(flags)).Name("Empty signature"));
+            hitSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(Vortice.Direct3D12.RootSignatureFlags.LocalRootSignature, [verticesParameter, indicesParameter])).Name("Hit signature"));
+            emptySignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(Vortice.Direct3D12.RootSignatureFlags.LocalRootSignature)).Name("Empty signature"));
+            emptyGlobalSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1()));
 
             var most = Shader.LoadDxil("raytrace.hlsl", "lib_6_3");
             var hit = Shader.LoadDxil("hit.hlsl", "lib_6_3");
@@ -56,6 +56,7 @@ namespace Renderer.Direct3D12
             var rayGenSignatureSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.LocalRootSignature(rayGenSignature));
             var hitSignatureSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.LocalRootSignature(hitSignature));
             var emptySignatureSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.LocalRootSignature(emptySignature));
+
 
             state = disposeTracker.Track(device.CreateStateObject(new Vortice.Direct3D12.StateObjectDescription(Vortice.Direct3D12.StateObjectType.RaytracingPipeline,
                 new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.DxilLibraryDescription(most,
@@ -156,6 +157,7 @@ namespace Renderer.Direct3D12
             });
 
             entry.List.ResourceBarrierUnorderedAccessView(result);
+            entry.List.SetComputeRootSignature(emptyGlobalSignature);
 
             device.CreateShaderResourceView(null,
                 new Vortice.Direct3D12.ShaderResourceViewDescription

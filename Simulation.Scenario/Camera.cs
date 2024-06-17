@@ -27,8 +27,6 @@ namespace Simulation
 
         public Matrix4x4 ViewProjection { get; private set; }
         public Matrix4x4 InvViewProjection { get; private set; }
-        public Matrix4x4 InvView { get; private set; }
-        public Matrix4x4 InvProjection { get; private set; }
 
         public void Resize(ScreenSize newSize)
         {
@@ -46,24 +44,6 @@ namespace Simulation
             if (Matrix4x4.Invert(ViewProjection, out var unprojection))
             {
                 InvViewProjection = unprojection;
-            }
-            else
-            {
-                throw new InvalidOperationException();
-            }
-
-            if (Matrix4x4.Invert(viewMatrix, out var invView))
-            {
-                InvView = invView;
-            }
-            else
-            {
-                throw new InvalidOperationException();
-            }
-
-            if (Matrix4x4.Invert(projMatrix, out var invProj))
-            {
-                InvProjection = invProj;
             }
             else
             {
