@@ -11,10 +11,10 @@ namespace UI.Renderers
             var matrix = unit.WorldMatrix * camera.ViewProjection;
             var aabb = ScreenRectangle.FromPoints(unit.Blueprint.Mesh.Vertices.Select(v => Project.Screen(v.Position, matrix, camera.ScreenSize)));
 
-            var width = Math.Abs(aabb.End.X - aabb.Start.X) / 10;
-            var height = Math.Abs(aabb.End.Y - aabb.Start.Y) / 10;
+            var width = Math.Abs(aabb.End.X - aabb.Start.X) / 3;
+            var height = Math.Abs(aabb.End.Y - aabb.Start.Y) / 3;
 
-            var thickness = (width + height) / 10;
+            var thickness = Math.Max((width + height) / 30, 1);
 
             draw.FillGeometry(
                 new ScreenPosition[]

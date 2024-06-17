@@ -57,8 +57,8 @@ void RayGen()
     RayDesc ray;
     ray.Origin = Camera.Origin;
     ray.Direction = normalize(target - Camera.Origin);
-    ray.TMin = 0;
-    ray.TMax = 1000;
+    ray.TMin = 0.01;
+    ray.TMax = 10000;
     
     TraceRay(
         SceneBVH,

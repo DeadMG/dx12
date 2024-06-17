@@ -38,7 +38,7 @@ namespace Simulation
         private void CreateProjectionMatrices()
         {
             var viewMatrix = Matrix4x4.CreateLookAtLeftHanded(Position, Position + Vector3.Transform(new Vector3(0, 0, 1), Orientation), Vector3.Transform(new Vector3(0, 1, 0), Orientation));
-            var projMatrix = Matrix4x4.CreatePerspectiveFieldOfViewLeftHanded(Fov.ToRadians(), (float)size.Width / size.Height, 1f, 1000);
+            var projMatrix = Matrix4x4.CreatePerspectiveFieldOfViewLeftHanded(Fov.ToRadians(), (float)size.Width / size.Height, 1f, float.PositiveInfinity);
             ViewProjection = viewMatrix * projMatrix;
 
             if (Matrix4x4.Invert(ViewProjection, out var unprojection))
