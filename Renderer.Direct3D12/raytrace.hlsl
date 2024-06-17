@@ -24,8 +24,10 @@ RaytracingAccelerationStructure SceneBVH : register(t0);
 
 struct CameraMatrices
 {
-    float4x4 InverseView;
-    float4x4 InverseProjection;
+    float3 worldTopLeft;
+    float3 worldTopRight;
+    float3 worldBottomLeft;
+    
     float3 Origin;
 };
 
@@ -42,15 +44,19 @@ void RayGen()
     // Get the location within the dispatched 2D grid of work items
     // (often maps to pixels, so this could represent a pixel coordinate).
     uint2 launchIndex = DispatchRaysIndex().xy;
-    float2 dims = float2(DispatchRaysDimensions().xy);
-    float2 d = ((launchIndex.xy / dims.xy) * 2.f) - 1.f;
+    // 0.5f puts us in the center of that pixel
+    float2 pixelCoordinate = launchIndex.xy + 0.5f;
+    // The given dimensions are the absolute maximum of the frustum; they are on the boundaries. There's 1 more boundary than there is pixels.
+    float2 dims = float2(DispatchRaysDimensions().xy) + 1.0f;
     
-   
+    float3 top = (Camera.worldTopRight - Camera.worldTopLeft) / dims.x;
+    float3 down = (Camera.worldBottomLeft - Camera.worldTopLeft) / dims.y;
+    
+    float3 target = Camera.worldTopLeft + (top * pixelCoordinate.x) + (down * pixelCoordinate.y);
+    
     RayDesc ray;
     ray.Origin = Camera.Origin;
-    float4 target = mul(Camera.InverseView, mul(Camera.InverseProjection, float4(d.x, -d.y, 1, 1)));
-    target = target / target.w;
-    ray.Direction = normalize(target.xyz);
+    ray.Direction = normalize(target - Camera.Origin);
     ray.TMin = 0;
     ray.TMax = 1000;
     

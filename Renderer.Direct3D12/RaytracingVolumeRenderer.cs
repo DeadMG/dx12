@@ -1,8 +1,10 @@
 ﻿using Data.Space;
 using Simulation;
+using Simulation.Physics;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Util;
+using Vortice.Mathematics;
 
 namespace Renderer.Direct3D12
 {
@@ -168,7 +170,11 @@ namespace Renderer.Direct3D12
                 },
                 srvUavHeap.CPU(1));
 
-            var cameraBuffer = entry.DisposeAfterExecution(entry.CreateUploadBuffer(new[] { new CameraMatrices { InverseView = camera.InvView, InverseProjection = camera.InvProjection, Origin = camera.Position } }, 256));
+            var frustum = Frustum.FromScreen(new ScreenRectangle { Start = new ScreenPosition(0, 0), End = new ScreenPosition(rp.ScreenSize.Width, rp.ScreenSize.Height) }, rp.ScreenSize, camera.InvViewProjection);
+
+            var cameraData = new CameraMatrices { worldBottomLeft = frustum.Points[0], worldTopLeft = frustum.Points[1], worldTopRight = frustum.Points[2], Origin = camera.Position };
+
+            var cameraBuffer = entry.DisposeAfterExecution(entry.CreateUploadBuffer(new[] { cameraData }, 256).Name("Camera buffer"));
 
             device.CreateConstantBufferView(
                 new Vortice.Direct3D12.ConstantBufferViewDescription 
@@ -219,10 +225,19 @@ namespace Renderer.Direct3D12
             disposeTracker.Dispose();
         }
 
+        [StructLayout(LayoutKind.Explicit)]
         private struct CameraMatrices
         {
-            public Matrix4x4 InverseView;
-            public Matrix4x4 InverseProjection;
+            [FieldOffset(0)]
+            public Vector3 worldTopLeft;
+
+            [FieldOffset(16)]
+            public Vector3 worldTopRight;
+
+            [FieldOffset(32)]
+            public Vector3 worldBottomLeft;
+
+            [FieldOffset(48)]
             public Vector3 Origin;
         }
     }
