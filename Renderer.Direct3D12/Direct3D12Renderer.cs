@@ -18,13 +18,11 @@ namespace Renderer.Direct3D12
         private readonly Vortice.DXGI.IDXGISwapChain3 swapChain;
         private readonly Vortice.Direct3D12.ID3D12DescriptorHeap renderTargetHeap;
         private readonly Vortice.Direct2D1.ID2D1DeviceContext deviceContext;
-        private readonly Vortice.Direct3D12.ID3D12DescriptorHeap depthStencilHeap;
         private readonly Vortice.Direct2D1.ID2D1Factory1 factory1;
         private readonly MeshResourceCache bpResourceCache;
         private readonly RaytracingVolumeRenderer raytraceVolumeRenderer;
         private readonly Direct2DDraw draw;
 
-        private DepthBuffer depthBuffer;
         private BackBuffers backBuffers;
 
         public Direct3D12Renderer(IntPtr hWnd, ScreenSize size)
@@ -131,16 +129,7 @@ namespace Renderer.Direct3D12
                 deviceContext = disposeTracker.Track(device2d.CreateDeviceContext(Vortice.Direct2D1.DeviceContextOptions.EnableMultithreadedOptimizations));
             }
 
-            depthStencilHeap = disposeTracker.Track(device.CreateDescriptorHeap(new Vortice.Direct3D12.DescriptorHeapDescription
-            {
-                DescriptorCount = 10,
-                Flags = Vortice.Direct3D12.DescriptorHeapFlags.None,
-                NodeMask = 0,
-                Type = Vortice.Direct3D12.DescriptorHeapType.DepthStencilView
-            }).Name("Main depth stencil heap"));
-
             backBuffers = new BackBuffers(device, renderTargetHeap, swapChain, on12, deviceContext, immediateContext);
-            depthBuffer = new DepthBuffer(device, size, depthStencilHeap.GetCPUDescriptorHandleForHeapStart());
 
             bpResourceCache = disposeTracker.Track(new MeshResourceCache(device));           
             raytraceVolumeRenderer = disposeTracker.Track(new RaytracingVolumeRenderer(bpResourceCache, device, directCommandQueue, size, swapChain.Description1.Format));
@@ -161,11 +150,9 @@ namespace Renderer.Direct3D12
             if (desc.Width == size.Width && desc.Height == size.Height) return; // Nothing needed
 
             backBuffers.Dispose();
-            depthBuffer.Dispose();
             swapChain.ResizeBuffers(desc.BufferCount, size.Width, size.Height, desc.Format, desc.Flags);
 
             backBuffers = new BackBuffers(device, renderTargetHeap, swapChain, on12, deviceContext, immediateContext);
-            depthBuffer = new DepthBuffer(device, size, depthStencilHeap.GetCPUDescriptorHandleForHeapStart());
 
             raytraceVolumeRenderer?.OnResize(size);
             draw.Resize(size);
@@ -178,7 +165,6 @@ namespace Renderer.Direct3D12
             var poolEntry = directCommandQueue.GetCommandList();
             poolEntry.List.ResourceBarrierTransition(currentBuffer.Buffer, Vortice.Direct3D12.ResourceStates.Present, Vortice.Direct3D12.ResourceStates.RenderTarget);
             poolEntry.List.ClearRenderTargetView(currentBuffer.DescriptorHandle, new Vortice.Mathematics.Color4(0, 0, 0, 1.0f));
-            poolEntry.List.ClearDepthStencilView(depthStencilHeap.GetCPUDescriptorHandleForHeapStart(), Vortice.Direct3D12.ClearFlags.Depth, 1f, 0);
             poolEntry.Execute();
 
             if (volumeRender != null)
@@ -186,7 +172,6 @@ namespace Renderer.Direct3D12
                 raytraceVolumeRenderer.Render(new RendererParameters
                 {
                     RenderTarget = currentBuffer.Buffer,
-                    DepthBuffer = depthStencilHeap.GetCPUDescriptorHandleForHeapStart(),
                     RenderTargetDescriptor = currentBuffer.DescriptorHandle,
                     ScreenSize = new ScreenSize(swapChain.Description1.Width, swapChain.Description1.Height),
                 }, volumeRender.Volume, volumeRender.Camera);
@@ -217,7 +202,6 @@ namespace Renderer.Direct3D12
         public void Dispose()
         {
             backBuffers.Dispose();
-            depthBuffer.Dispose();
             disposeTracker.Dispose();
         }
 
