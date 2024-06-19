@@ -23,7 +23,7 @@ namespace UI
 
         public Camera CameraFor(Volume volume)
         {
-            if (!Cameras.ContainsKey(volume)) Cameras[volume] = new Camera(screenSize, new Vector3(0, 30, 0), Quaternion.CreateFromAxisAngle(new Vector3(1, 0, 0), 90f.ToRadians()), 90f);
+            if (!Cameras.ContainsKey(volume)) Cameras[volume] = new Camera(screenSize, new Vector3(0, 30, 0), Quaternion.CreateFromAxisAngle(new Vector3(1, 0, 0), 90f.ToRadians()), 45f);
             return Cameras[volume];
         }
 

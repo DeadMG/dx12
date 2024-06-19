@@ -20,9 +20,9 @@ namespace Simulation
             }
         }
 
-        public Volume AddVolume(Vector3 dimensions)
+        public Volume AddVolume(Map map)
         {
-            var volume = new Volume(dimensions);
+            var volume = new Volume { Map = map };
             Volumes.Add(volume);
             return volume;
         }

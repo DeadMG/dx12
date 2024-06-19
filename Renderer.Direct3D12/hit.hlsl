@@ -22,11 +22,17 @@ struct Vertex
     float3 Colour;
 };
 
+struct Light
+{
+    float Level;
+};
+
+ConstantBuffer<Light> Ambient : register(b0);
 StructuredBuffer<Vertex> Vertices : register(t0);
 StructuredBuffer<uint> Indices : register(t1);
 
 [shader("closesthit")]
-void ClosestHit(inout HitInfo payload, Attributes attrib)
+void ClosestObjectHit(inout HitInfo payload, Attributes attrib)
 {
     float3 barycentrics = float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
     uint vertId = 3 * PrimitiveIndex();
@@ -35,5 +41,5 @@ void ClosestHit(inout HitInfo payload, Attributes attrib)
                     Vertices[Indices[vertId + 1]].Colour * barycentrics.y +
                     Vertices[Indices[vertId + 2]].Colour * barycentrics.z;
     
-    payload.colorAndDistance = float4(hitColor, RayTCurrent());
+    payload.colorAndDistance = float4(Ambient.Level * hitColor, RayTCurrent());
 }

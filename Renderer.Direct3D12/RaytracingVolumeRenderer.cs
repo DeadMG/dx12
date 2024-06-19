@@ -4,14 +4,13 @@ using Simulation.Physics;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Util;
-using Vortice.Mathematics;
 
 namespace Renderer.Direct3D12
 {
     internal class RaytracingVolumeRenderer : IDisposable
     {
         private readonly DisposeTracker disposeTracker = new DisposeTracker();
-        private readonly ResourceCache resourceCache;
+        private readonly MeshResourceCache meshResourceCache;
         private readonly CommandListPool directListPool;
         private readonly Vortice.Direct3D12.ID3D12Device5 device;
         private readonly Vortice.DXGI.Format renderTargetFormat;
@@ -20,15 +19,17 @@ namespace Renderer.Direct3D12
         private readonly Vortice.Direct3D12.ID3D12RootSignature rayGenSignature;
         private readonly Vortice.Direct3D12.ID3D12RootSignature hitSignature;
         private readonly Vortice.Direct3D12.ID3D12RootSignature emptyGlobalSignature;
+        private readonly Vortice.Direct3D12.ID3D12RootSignature sunSignature;
         private readonly Vortice.Direct3D12.ID3D12RootSignature emptySignature;
         private readonly Vortice.Direct3D12.ID3D12StateObject state;
         private readonly StateObjectProperties stateObjectProperties;
+        private readonly Mesh sunMesh;
 
         private RaytracingScreenResources screenResources;
 
-        public RaytracingVolumeRenderer(ResourceCache resourceCache, Vortice.Direct3D12.ID3D12Device5 device, CommandListPool directListPool, ScreenSize screenSize, Vortice.DXGI.Format renderTargetFormat)
+        public RaytracingVolumeRenderer(MeshResourceCache meshResourceCache, Vortice.Direct3D12.ID3D12Device5 device, CommandListPool directListPool, ScreenSize screenSize, Vortice.DXGI.Format renderTargetFormat)
         {
-            this.resourceCache = resourceCache;
+            this.meshResourceCache = meshResourceCache;
             this.directListPool = directListPool;
             this.device = device;
             this.renderTargetFormat = renderTargetFormat;
@@ -44,38 +45,52 @@ namespace Renderer.Direct3D12
 
             var verticesParameter = new Vortice.Direct3D12.RootParameter1(Vortice.Direct3D12.RootParameterType.ShaderResourceView, new Vortice.Direct3D12.RootDescriptor1 { ShaderRegister = 0 }, Vortice.Direct3D12.ShaderVisibility.All);
             var indicesParameter = new Vortice.Direct3D12.RootParameter1(Vortice.Direct3D12.RootParameterType.ShaderResourceView, new Vortice.Direct3D12.RootDescriptor1 { ShaderRegister = 1 }, Vortice.Direct3D12.ShaderVisibility.All);
+            var lightParameter = new Vortice.Direct3D12.RootParameter1(new Vortice.Direct3D12.RootConstants(0, 0, Marshal.SizeOf<Light>() / 4), Vortice.Direct3D12.ShaderVisibility.All);
+            var sunParameter = new Vortice.Direct3D12.RootParameter1(new Vortice.Direct3D12.RootConstants(0, 0, Marshal.SizeOf<Sun>() / 4), Vortice.Direct3D12.ShaderVisibility.All);
 
-            hitSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(Vortice.Direct3D12.RootSignatureFlags.LocalRootSignature, [verticesParameter, indicesParameter])).Name("Hit signature"));
+            sunSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(Vortice.Direct3D12.RootSignatureFlags.LocalRootSignature, [sunParameter])).Name("Sun signature"));
+            hitSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(Vortice.Direct3D12.RootSignatureFlags.LocalRootSignature, [verticesParameter, indicesParameter, lightParameter])).Name("Hit signature"));
             emptySignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(Vortice.Direct3D12.RootSignatureFlags.LocalRootSignature)).Name("Empty signature"));
             emptyGlobalSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1()));
 
             var most = Shader.LoadDxil("raytrace.hlsl", "lib_6_3");
             var hit = Shader.LoadDxil("hit.hlsl", "lib_6_3");
+            var sun = Shader.LoadDxil("sunhit.hlsl", "lib_6_3");
 
             var shaderConfigSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.RaytracingShaderConfig { MaxAttributeSizeInBytes = 8, MaxPayloadSizeInBytes = 16 });
             var rayGenSignatureSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.LocalRootSignature(rayGenSignature));
             var hitSignatureSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.LocalRootSignature(hitSignature));
             var emptySignatureSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.LocalRootSignature(emptySignature));
-
+            var sunSignatureSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.LocalRootSignature(sunSignature));
 
             state = disposeTracker.Track(device.CreateStateObject(new Vortice.Direct3D12.StateObjectDescription(Vortice.Direct3D12.StateObjectType.RaytracingPipeline,
                 new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.DxilLibraryDescription(most,
                      new Vortice.Direct3D12.ExportDescription("RayGen"),
                      new Vortice.Direct3D12.ExportDescription("Miss"))),
                 new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.DxilLibraryDescription(hit,
-                     new Vortice.Direct3D12.ExportDescription("ClosestHit"))),
+                     new Vortice.Direct3D12.ExportDescription("ClosestObjectHit"))),
+                new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.DxilLibraryDescription(sun,
+                     new Vortice.Direct3D12.ExportDescription("ClosestSunHit"))),
                 new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.HitGroupDescription
                 {
                     Type = Vortice.Direct3D12.HitGroupType.Triangles,
-                    HitGroupExport = "HitGroup",
-                    ClosestHitShaderImport = "ClosestHit",
+                    HitGroupExport = "ObjectHitGroup",
+                    ClosestHitShaderImport = "ClosestObjectHit",
+                }),
+                new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.HitGroupDescription
+                {
+                    Type = Vortice.Direct3D12.HitGroupType.Triangles,
+                    HitGroupExport = "SunHitGroup",
+                    ClosestHitShaderImport = "ClosestSunHit",
                 }),
                 shaderConfigSubobject,
-                new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.SubObjectToExportsAssociation(shaderConfigSubobject, "ClosestHit", "RayGen", "Miss")),
+                new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.SubObjectToExportsAssociation(shaderConfigSubobject, "ClosestSunHit", "ClosestObjectHit", "RayGen", "Miss")),
                 rayGenSignatureSubobject,
                 new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.SubObjectToExportsAssociation(rayGenSignatureSubobject, "RayGen")),
                 hitSignatureSubobject,
-                new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.SubObjectToExportsAssociation(hitSignatureSubobject, "HitGroup")),
+                new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.SubObjectToExportsAssociation(hitSignatureSubobject, "ObjectHitGroup")),
+                sunSignatureSubobject,
+                new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.SubObjectToExportsAssociation(sunSignatureSubobject, "SunHitGroup")),
                 emptySignatureSubobject,
                 new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.SubObjectToExportsAssociation(emptySignatureSubobject, "Miss")),
                 new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.RaytracingPipelineConfig(1))))
@@ -92,6 +107,8 @@ namespace Renderer.Direct3D12
             }).Name("Raytrace SRV/UAV heap"));
 
             screenResources = new RaytracingScreenResources(device, stateObjectProperties, srvUavHeap, screenSize,  renderTargetFormat);
+
+            sunMesh = new IcosphereGenerator().Generate(3, new RGB { R = 1, G = 1, B = 0 });
         }
 
         public void OnResize(ScreenSize newSize)
@@ -111,32 +128,39 @@ namespace Renderer.Direct3D12
                 {
                     Blueprint = unitGroup.Key,
                     Units = unitGroup.ToArray(),
-                    Data = resourceCache.For(unitGroup.Key, entry, true)
+                    Data = meshResourceCache.Load(unitGroup.Key.Mesh, entry)
                 })
                 .ToArray();
 
+            var sunData = meshResourceCache.Load(sunMesh, entry);
+
             var instances = entry.DisposeAfterExecution(entry.CreateUploadBuffer(byBlueprint
                 .SelectMany((group, index) => group.Units
-                    .Select(unit => {
-                        var worldMatrix = Matrix4x4.Transpose(unit.WorldMatrix); // HLSL uses the opposite convention
-                        return new Vortice.Direct3D12.RaytracingInstanceDescription
+                    .Select(unit =>
+                        new Vortice.Direct3D12.RaytracingInstanceDescription
                         {
-                            AccelerationStructure = group.Data.RaytracingData.BLAS.GPUVirtualAddress,
+                            AccelerationStructure = group.Data.BLAS.GPUVirtualAddress,
                             InstanceID = new Vortice.UInt24(0),
                             Flags = Vortice.Direct3D12.RaytracingInstanceFlags.None,
-                            Transform = new Vortice.Mathematics.Matrix3x4(
-                                worldMatrix.M11, worldMatrix.M12, worldMatrix.M13, worldMatrix.M14,
-                                worldMatrix.M21, worldMatrix.M22, worldMatrix.M23, worldMatrix.M24,
-                                worldMatrix.M31, worldMatrix.M32, worldMatrix.M33, worldMatrix.M34),
+                            Transform = unit.WorldMatrix.AsAffine(),
                             InstanceMask = 0xFF,
                             InstanceContributionToHitGroupIndex = new Vortice.UInt24((uint)index)
-                        };
+                        }))
+                .Concat(volume.Map.Suns.Select((s, index) => 
+                    new Vortice.Direct3D12.RaytracingInstanceDescription
+                    {
+                        AccelerationStructure = sunData.BLAS.GPUVirtualAddress,
+                        InstanceID = new Vortice.UInt24(0),
+                        Flags = Vortice.Direct3D12.RaytracingInstanceFlags.None,
+                        InstanceMask = 0xFF,
+                        InstanceContributionToHitGroupIndex = new Vortice.UInt24((uint)(byBlueprint.Length + index)),
+                        Transform = (Matrix4x4.CreateScale(s.Size) * Matrix4x4.CreateTranslation(s.Position)).AsAffine()
                     }))
                 .ToArray()));
 
             var asDesc = new Vortice.Direct3D12.BuildRaytracingAccelerationStructureInputs
             {
-                DescriptorsCount = byBlueprint.Sum(x => x.Units.Length),
+                DescriptorsCount = volume.Units.Count() + volume.Map.Suns.Count(),
                 Flags = Vortice.Direct3D12.RaytracingAccelerationStructureBuildFlags.None,
                 Layout = Vortice.Direct3D12.ElementsLayout.Array,
                 Type = Vortice.Direct3D12.RaytracingAccelerationStructureType.TopLevel,
@@ -186,11 +210,16 @@ namespace Renderer.Direct3D12
                 },
                 srvUavHeap.CPU(2));
 
+            var ambientLight = new Light { AmbientLightLevel = volume.Map.AmbientLightLevel };
             var shaderTable = entry.DisposeAfterExecution(new ShaderBindingTable(stateObjectProperties));
             shaderTable.AddRayGeneration("RayGen", BitConverter.GetBytes(srvUavHeap.GPU(0).Ptr));
             foreach (var group in byBlueprint)
             {
-                shaderTable.AddHit("HitGroup", BitConverter.GetBytes(group.Data.VertexBuffer.GPUVirtualAddress).Concat(BitConverter.GetBytes(group.Data.IndexBuffer.GPUVirtualAddress)).ToArray());
+                shaderTable.AddHit("ObjectHitGroup", BitConverter.GetBytes(group.Data.VertexBuffer.GPUVirtualAddress).Concat(BitConverter.GetBytes(group.Data.IndexBuffer.GPUVirtualAddress)).Concat(GetBytes(ambientLight)).ToArray());
+            }
+            foreach (var sun in volume.Map.Suns)
+            {
+                shaderTable.AddHit("SunHitGroup", GetBytes(new Sun { Colour = sun.LightColour }).ToArray());
             }
             shaderTable.AddMiss("Miss", new byte[0]);
 
@@ -217,7 +246,7 @@ namespace Renderer.Direct3D12
             entry.Execute();
         }
 
-        private readonly record struct UnitsByBlueprint(Blueprint Blueprint, Unit[] Units, ResourceCache.BlueprintData Data)
+        private readonly record struct UnitsByBlueprint(Blueprint Blueprint, Unit[] Units, MeshResourceCache.MeshData Data)
         {
         }
 
@@ -241,6 +270,40 @@ namespace Renderer.Direct3D12
 
             [FieldOffset(48)]
             public Vector3 Origin;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        private struct Light
+        {
+            [FieldOffset(0)]
+            public float AmbientLightLevel;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        private struct Sun
+        {
+            [FieldOffset(0)]
+            public RGB Colour;
+        }
+
+        byte[] GetBytes<T>(T str)
+            where T : unmanaged
+        {
+            int size = Marshal.SizeOf(str);
+            byte[] arr = new byte[size];
+
+            IntPtr ptr = IntPtr.Zero;
+            try
+            {
+                ptr = Marshal.AllocHGlobal(size);
+                Marshal.StructureToPtr(str, ptr, true);
+                Marshal.Copy(ptr, arr, 0, size);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(ptr);
+            }
+            return arr;
         }
     }
 }

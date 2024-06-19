@@ -20,11 +20,9 @@ namespace Renderer.Direct3D12
         private readonly Vortice.Direct2D1.ID2D1DeviceContext deviceContext;
         private readonly Vortice.Direct3D12.ID3D12DescriptorHeap depthStencilHeap;
         private readonly Vortice.Direct2D1.ID2D1Factory1 factory1;
-        private readonly ResourceCache resourceCache;
-        private readonly VolumeRenderer volumeRenderer;
-        private readonly RaytracingVolumeRenderer? raytraceVolumeRenderer;
+        private readonly MeshResourceCache bpResourceCache;
+        private readonly RaytracingVolumeRenderer raytraceVolumeRenderer;
         private readonly Direct2DDraw draw;
-        private readonly bool supportsRaytracing;
 
         private DepthBuffer depthBuffer;
         private BackBuffers backBuffers;
@@ -144,22 +142,8 @@ namespace Renderer.Direct3D12
             backBuffers = new BackBuffers(device, renderTargetHeap, swapChain, on12, deviceContext, immediateContext);
             depthBuffer = new DepthBuffer(device, size, depthStencilHeap.GetCPUDescriptorHandleForHeapStart());
 
-            var result = new Direct3D12Options5();
-            device.CheckFeatureSupport(Options5, ref result);
-            supportsRaytracing = result.RaytracingTier >= Direct3D12RaytracingTier.Tier1_0;
-
-            resourceCache = disposeTracker.Track(new ResourceCache(device));
-
-            volumeRenderer = disposeTracker.Track(new VolumeRenderer(device, directCommandQueue, resourceCache, swapChain.Description1.Format));
-
-            if (supportsRaytracing)
-            {
-                raytraceVolumeRenderer = disposeTracker.Track(new RaytracingVolumeRenderer(resourceCache, device, directCommandQueue, size, swapChain.Description1.Format));
-            } 
-            else
-            {
-                raytraceVolumeRenderer = null;
-            }
+            bpResourceCache = disposeTracker.Track(new MeshResourceCache(device));           
+            raytraceVolumeRenderer = disposeTracker.Track(new RaytracingVolumeRenderer(bpResourceCache, device, directCommandQueue, size, swapChain.Description1.Format));
 
             draw = new Direct2DDraw(factory1, deviceContext, size);
         }
@@ -199,26 +183,13 @@ namespace Renderer.Direct3D12
 
             if (volumeRender != null)
             {
-                if (raytraceVolumeRenderer != null)
+                raytraceVolumeRenderer.Render(new RendererParameters
                 {
-                    raytraceVolumeRenderer.Render(new RendererParameters
-                    {
-                        RenderTarget = currentBuffer.Buffer,
-                        DepthBuffer = depthStencilHeap.GetCPUDescriptorHandleForHeapStart(),
-                        RenderTargetDescriptor = currentBuffer.DescriptorHandle,
-                        ScreenSize = new ScreenSize(swapChain.Description1.Width, swapChain.Description1.Height),
-                    }, volumeRender.Volume, volumeRender.Camera);
-                }
-                else
-                {
-                    volumeRenderer.Render(new RendererParameters
-                    {
-                        RenderTarget = currentBuffer.Buffer,
-                        DepthBuffer = depthStencilHeap.GetCPUDescriptorHandleForHeapStart(),
-                        RenderTargetDescriptor = currentBuffer.DescriptorHandle,
-                        ScreenSize = new ScreenSize(swapChain.Description1.Width, swapChain.Description1.Height),
-                    }, volumeRender.Volume, volumeRender.Camera);
-                }
+                    RenderTarget = currentBuffer.Buffer,
+                    DepthBuffer = depthStencilHeap.GetCPUDescriptorHandleForHeapStart(),
+                    RenderTargetDescriptor = currentBuffer.DescriptorHandle,
+                    ScreenSize = new ScreenSize(swapChain.Description1.Width, swapChain.Description1.Height),
+                }, volumeRender.Volume, volumeRender.Camera);
             }
 
             on12.AcquireWrappedResources(new[] { backBuffers.wrappedResources[swapChain.CurrentBackBufferIndex] }, 1);

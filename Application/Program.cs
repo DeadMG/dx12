@@ -22,6 +22,7 @@ namespace Application
                 Name = "Hypercraft",
                 Mesh = new Simulation.Mesh
                 {
+                    Id = Guid.NewGuid(),
                     Vertices =
                     [
                         new Simulation.Vertex { Position = new Vector3(3.0f, 0.0f, 0.0f), Colour = new RGB { R = 0, G = 1, B = 0 } },
@@ -54,13 +55,30 @@ namespace Application
                 TurnRate = (float)Math.PI / 2,
             };
 
-            var volume = scenario.AddVolume(new Vector3(100000, 100000, 100000));
+            var map = new Simulation.Map {
+                AmbientLightLevel = 0.1f,
+                Dimensions = new Vector3(100000, 100000, 100000),
+                Suns = [
+                    new Simulation.Sun
+                    {
+                        Size = 20,
+                        Position = new Vector3(-40, 0, 40),
+                        LightColour = new RGB { R = 0.1f, G = 0.1f, B = 1 }
+                    },
+                    new Simulation.Sun 
+                    {
+                        Size = 100,
+                        Position = new Vector3(200, 0, 200),
+                        LightColour = new RGB { R = 1, G = 1, B = 0.1f }
+                    }
+                ] 
+            };
+            var volume = scenario.AddVolume(map);
 
             volume.Add(new Simulation.Unit(player, print, new Vector3(8, 0, 8), Quaternion.Identity));
             volume.Add(new Simulation.Unit(player, print, new Vector3(-8, 0, 8), Quaternion.Identity));
             volume.Add(new Simulation.Unit(player, print, new Vector3(-8, 0, -8), Quaternion.Identity));
             volume.Add(new Simulation.Unit(player, print, new Vector3(8, 0, -8), Quaternion.Identity));
-
 
             var window = platform.CreateWindow();
             var screenSize = await window.GetSize();

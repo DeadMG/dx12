@@ -50,7 +50,7 @@ namespace Application
             var mousePos = mouseMoveEvent.Read();
             if (mousePos != null)
             {
-                octree = octree ?? new Octree<Unit>(uiState.CurrentVolume.Units, uiState.CurrentVolume.Dimensions);
+                octree = octree ?? new Octree<Unit>(uiState.CurrentVolume.Units, uiState.CurrentVolume.Map.Dimensions);
 
                 uiState.Hover = At(uiState.CurrentCamera, Ray.FromScreen(mousePos.Value, uiState.ScreenSize, uiState.CurrentCamera.InvViewProjection), octree);
             }
@@ -63,7 +63,7 @@ namespace Application
 
             if (leftDown != null && mousePos != null && !leftDown.Equals(mousePos))
             {
-                octree = octree ?? new Octree<Unit>(uiState.CurrentVolume.Units, uiState.CurrentVolume.Dimensions);
+                octree = octree ?? new Octree<Unit>(uiState.CurrentVolume.Units, uiState.CurrentVolume.Map.Dimensions);
 
                 var frustum = Frustum.FromScreen(ScreenRectangle.FromPoints(mousePos.Value, leftDown.Value), uiState.ScreenSize, uiState.CurrentCamera.InvViewProjection);
                 uiState.Highlight.Clear();
@@ -73,7 +73,7 @@ namespace Application
 
             if (selectionEvent.TryConsume(out var selection))
             {
-                octree = octree ?? new Octree<Unit>(uiState.CurrentVolume.Units, uiState.CurrentVolume.Dimensions);
+                octree = octree ?? new Octree<Unit>(uiState.CurrentVolume.Units, uiState.CurrentVolume.Map.Dimensions);
 
                 uiState.Highlight.Clear();
                 uiState.SelectionBox = null;

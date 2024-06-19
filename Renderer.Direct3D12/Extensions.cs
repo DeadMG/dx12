@@ -1,4 +1,6 @@
 ﻿using Data.Space;
+using Simulation;
+using System.Numerics;
 
 namespace Renderer.Direct3D12
 {
@@ -40,6 +42,15 @@ namespace Renderer.Direct3D12
             {
                 return heap.GetGPUDescriptorHandleForHeapStart().Offset(amount, device.GetDescriptorHandleIncrementSize(heap.Description.Type));
             }
+        }
+
+        public static Vortice.Mathematics.Matrix3x4 AsAffine(this Matrix4x4 matrix)
+        {
+            var worldMatrix = Matrix4x4.Transpose(matrix); // HLSL uses the opposite convention
+            return new Vortice.Mathematics.Matrix3x4(
+                worldMatrix.M11, worldMatrix.M12, worldMatrix.M13, worldMatrix.M14,
+                worldMatrix.M21, worldMatrix.M22, worldMatrix.M23, worldMatrix.M24,
+                worldMatrix.M31, worldMatrix.M32, worldMatrix.M33, worldMatrix.M34);
         }
     }
 }

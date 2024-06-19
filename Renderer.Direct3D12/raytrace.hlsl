@@ -28,7 +28,7 @@ struct CameraMatrices
     float3 worldTopRight;
     float3 worldBottomLeft;
     
-    float3 Origin;
+    float3 Origin;    
 };
 
 // Camera matrices
@@ -69,7 +69,7 @@ void RayGen()
         0,
         ray,
         payload);
-
+    
     output[launchIndex] = float4(payload.colorAndDistance.rgb, 1.f);
 }
 
