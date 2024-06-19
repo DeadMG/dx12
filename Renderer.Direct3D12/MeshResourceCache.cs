@@ -6,7 +6,6 @@ namespace Renderer.Direct3D12
 {
     internal class MeshResourceCache : IDisposable
     {
-        private readonly VertexCalculator vertexCalculator = new VertexCalculator();
         private readonly DisposeTracker disposeTracker = new DisposeTracker();
         private readonly Dictionary<Guid, MeshData> cache = new Dictionary<Guid, MeshData>();
 
@@ -17,14 +16,15 @@ namespace Renderer.Direct3D12
             this.device = device;
         }
 
-        public MeshData Load(Mesh mesh, PooledCommandList list)
+        public MeshData Load<T>(Guid id, string name, Func<T[]> lazyVerts, uint[] indices, PooledCommandList list)
+            where T : unmanaged
         {
-            if (cache.ContainsKey(mesh.Id)) return cache[mesh.Id];
+            if (cache.ContainsKey(id)) return cache[id];
 
-            var verts = vertexCalculator.CalculateVertices(mesh);
+            var verts = lazyVerts();
 
-            var vertexBuffer = disposeTracker.Track(device.CreateStaticBuffer(verts.SizeOf()).Name($"Vertex buffer for {mesh.Id}"));
-            var indexBuffer = disposeTracker.Track(device.CreateStaticBuffer(mesh.Indices.SizeOf()).Name($"Index buffer for {mesh.Id}"));
+            var vertexBuffer = disposeTracker.Track(device.CreateStaticBuffer(verts.SizeOf()).Name($"{name} vertex buffer"));
+            var indexBuffer = disposeTracker.Track(device.CreateStaticBuffer(indices.SizeOf()).Name($"{name} index buffer"));
 
             var asDesc = new Vortice.Direct3D12.BuildRaytracingAccelerationStructureInputs
             {
@@ -40,7 +40,7 @@ namespace Renderer.Direct3D12
                         Triangles = new Vortice.Direct3D12.RaytracingGeometryTrianglesDescription
                         {
                             IndexBuffer = indexBuffer.GPUVirtualAddress,
-                            IndexCount = mesh.Indices.Length,
+                            IndexCount = indices.Length,
                             IndexFormat = Vortice.DXGI.Format.R32_UInt,
                             VertexBuffer = new Vortice.Direct3D12.GpuVirtualAddressAndStride
                             {
@@ -61,12 +61,12 @@ namespace Renderer.Direct3D12
             };
 
             list.UploadData(vertexBuffer, verts);
-            list.UploadData(indexBuffer, mesh.Indices);
+            list.UploadData(indexBuffer, indices);
 
             var prebuild = device.GetRaytracingAccelerationStructurePrebuildInfo(asDesc);
 
-            var scratch = list.DisposeAfterExecution(device.CreateStaticBuffer(prebuild.ScratchDataSizeInBytes.Align(256), Vortice.Direct3D12.ResourceStates.Common, Vortice.Direct3D12.ResourceFlags.AllowUnorderedAccess).Name($"BLAS scratch {mesh.Id}"));
-            var result = disposeTracker.Track(device.CreateStaticBuffer(prebuild.ResultDataMaxSizeInBytes.Align(256), Vortice.Direct3D12.ResourceStates.RaytracingAccelerationStructure, Vortice.Direct3D12.ResourceFlags.AllowUnorderedAccess).Name($"BLAS result {mesh.Id}"));
+            var scratch = list.DisposeAfterExecution(device.CreateStaticBuffer(prebuild.ScratchDataSizeInBytes.Align(256), Vortice.Direct3D12.ResourceStates.Common, Vortice.Direct3D12.ResourceFlags.AllowUnorderedAccess).Name($"{name} BLAS scratch"));
+            var result = disposeTracker.Track(device.CreateStaticBuffer(prebuild.ResultDataMaxSizeInBytes.Align(256), Vortice.Direct3D12.ResourceStates.RaytracingAccelerationStructure, Vortice.Direct3D12.ResourceFlags.AllowUnorderedAccess).Name($"{name} BLAS"));
 
             list.List.BuildRaytracingAccelerationStructure(new Vortice.Direct3D12.BuildRaytracingAccelerationStructureDescription
             {
@@ -78,11 +78,11 @@ namespace Renderer.Direct3D12
 
             var data = new MeshData { BLAS = result, IndexBuffer = indexBuffer, VertexBuffer = vertexBuffer };
 
-            cache[mesh.Id] = data;
+            cache[id] = data;
 
             list.List.ResourceBarrierUnorderedAccessView(result);
 
-            return cache[mesh.Id];
+            return cache[id];
         }
 
         public void Dispose()

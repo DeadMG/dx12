@@ -80,7 +80,7 @@ namespace Renderer.Direct3D12
             }
         }
 
-        public Mesh Generate(int subdivisions, RGB colour)
+        public IcosphereMesh Generate(int subdivisions)
         {
             var vertices = new List<Vector3>(baseVertices.Select(v => Vector3.Normalize(v)));
             var triangles = new List<Triangle>(baseTriangles);
@@ -90,10 +90,10 @@ namespace Renderer.Direct3D12
                 triangles = Subdivide(vertices, triangles);
             }
 
-            return new Mesh
+            return new IcosphereMesh
             {
                 Indices = triangles.SelectMany(x => x.Vertices.Select(x => (uint)x)).ToArray(),
-                Vertices = vertices.Select(x => new Vertex { Position = x, Colour = colour }).ToArray(),
+                Vertices = vertices.ToArray(),
                 Id = Guid.NewGuid()
             };
         }
@@ -132,11 +132,12 @@ namespace Renderer.Direct3D12
 
             return newIndex;
         }
+    }
 
-        public class IcosphereMesh
-        {
-            public required Vector3[] Positions { get; set; }
-            public required int[] Indices { get; set; }
-        }
+    public class IcosphereMesh
+    {
+        public required Vector3[] Vertices { get; init; }
+        public required uint[] Indices { get; init; }
+        public required Guid Id { get; init; }
     }
 }

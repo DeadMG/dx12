@@ -9,6 +9,7 @@ namespace Renderer.Direct3D12
 {
     internal class RaytracingVolumeRenderer : IDisposable
     {
+        private readonly VertexCalculator vertexCalculator = new VertexCalculator();
         private readonly DisposeTracker disposeTracker = new DisposeTracker();
         private readonly MeshResourceCache meshResourceCache;
         private readonly CommandListPool directListPool;
@@ -23,7 +24,7 @@ namespace Renderer.Direct3D12
         private readonly Vortice.Direct3D12.ID3D12RootSignature emptySignature;
         private readonly Vortice.Direct3D12.ID3D12StateObject state;
         private readonly StateObjectProperties stateObjectProperties;
-        private readonly Mesh sunMesh;
+        private readonly IcosphereMesh sunMesh;
 
         private RaytracingScreenResources screenResources;
 
@@ -50,8 +51,8 @@ namespace Renderer.Direct3D12
 
             sunSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(Vortice.Direct3D12.RootSignatureFlags.LocalRootSignature, [sunParameter])).Name("Sun signature"));
             hitSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(Vortice.Direct3D12.RootSignatureFlags.LocalRootSignature, [verticesParameter, indicesParameter, lightParameter])).Name("Hit signature"));
-            emptySignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(Vortice.Direct3D12.RootSignatureFlags.LocalRootSignature)).Name("Empty signature"));
-            emptyGlobalSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1()));
+            emptySignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(Vortice.Direct3D12.RootSignatureFlags.LocalRootSignature)).Name("Empty local signature"));
+            emptyGlobalSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1())).Name("Empty global signature");
 
             var most = Shader.LoadDxil("raytrace.hlsl", "lib_6_3");
             var hit = Shader.LoadDxil("hit.hlsl", "lib_6_3");
@@ -108,7 +109,7 @@ namespace Renderer.Direct3D12
 
             screenResources = new RaytracingScreenResources(device, stateObjectProperties, srvUavHeap, screenSize,  renderTargetFormat);
 
-            sunMesh = new IcosphereGenerator().Generate(3, new RGB { R = 1, G = 1, B = 0 });
+            sunMesh = new IcosphereGenerator().Generate(3);
         }
 
         public void OnResize(ScreenSize newSize)
@@ -128,11 +129,11 @@ namespace Renderer.Direct3D12
                 {
                     Blueprint = unitGroup.Key,
                     Units = unitGroup.ToArray(),
-                    Data = meshResourceCache.Load(unitGroup.Key.Mesh, entry)
+                    Data = meshResourceCache.Load(unitGroup.Key.Mesh.Id, unitGroup.Key.Name, () => vertexCalculator.CalculateVertices(unitGroup.Key.Mesh), unitGroup.Key.Mesh.Indices, entry)
                 })
                 .ToArray();
 
-            var sunData = meshResourceCache.Load(sunMesh, entry);
+            var sunData = meshResourceCache.Load(sunMesh.Id, "Sun", () => sunMesh.Vertices, sunMesh.Indices, entry);
 
             var instances = entry.DisposeAfterExecution(entry.CreateUploadBuffer(byBlueprint
                 .SelectMany((group, index) => group.Units
@@ -156,7 +157,8 @@ namespace Renderer.Direct3D12
                         InstanceContributionToHitGroupIndex = new Vortice.UInt24((uint)(byBlueprint.Length + index)),
                         Transform = (Matrix4x4.CreateScale(s.Size) * Matrix4x4.CreateTranslation(s.Position)).AsAffine()
                     }))
-                .ToArray()));
+                .ToArray()))
+                .Name("TLAS prep buffer");
 
             var asDesc = new Vortice.Direct3D12.BuildRaytracingAccelerationStructureInputs
             {
