@@ -61,16 +61,20 @@ namespace Application
                 Suns = [
                     new Simulation.Sun
                     {
-                        Size = 20,
+                        Size = 4,
                         Position = new Vector3(-40, 0, 40),
-                        LightColour = new RGB { R = 0.1f, G = 0.1f, B = 1 }
+                        MeshColour = new RGB { R = 0.1f, G = 0.1f, B = 1 },
+                        LightColour = new RGB { G = 1, B = 1, R = 1 },
+                        LightIntensity = 0.6f,
                     },
-                    new Simulation.Sun 
-                    {
-                        Size = 100,
-                        Position = new Vector3(200, 0, 200),
-                        LightColour = new RGB { R = 1, G = 1, B = 0.1f }
-                    }
+                    //new Simulation.Sun 
+                    //{
+                    //    Size = 100,
+                    //    Position = new Vector3(200, 0, 200),
+                    //    MeshColour = new RGB { R = 1, G = 1, B = 0.1f },
+                    //    LightColour = new RGB { G = 1, B = 1, R = 1 },
+                    //    LightIntensity = 0.4f,
+                    //}
                 ] 
             };
             var volume = scenario.AddVolume(map);

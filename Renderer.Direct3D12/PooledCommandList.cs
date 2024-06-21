@@ -37,7 +37,7 @@ namespace Renderer.Direct3D12
         }
 
         // Yep; no need for the caller to wait on disposal of this resource
-        public void UploadData<T>(Vortice.Direct3D12.ID3D12Resource resource, T[] data)
+        public void UploadData<T>(Vortice.Direct3D12.ID3D12Resource resource, IReadOnlyList<T> data)
             where T : unmanaged
         {
             var tempResource = DisposeAfterExecution(CreateUploadBuffer(data));
@@ -45,7 +45,7 @@ namespace Renderer.Direct3D12
             commandList.ResourceBarrier(new Vortice.Direct3D12.ResourceBarrier(new Vortice.Direct3D12.ResourceTransitionBarrier(resource, Vortice.Direct3D12.ResourceStates.CopyDest, Vortice.Direct3D12.ResourceStates.Common)));
         }
 
-        public Vortice.Direct3D12.ID3D12Resource CreateUploadBuffer<T>(T[] data, uint alignment = 1)
+        public Vortice.Direct3D12.ID3D12Resource CreateUploadBuffer<T>(IReadOnlyList<T> data, uint alignment = 1)
             where T : unmanaged
         {
             var size = alignment == 1 ? data.SizeOf() : data.SizeOf().Align(alignment);
@@ -54,20 +54,14 @@ namespace Renderer.Direct3D12
                     Vortice.Direct3D12.ResourceDescription.Buffer(new Vortice.Direct3D12.ResourceAllocationInfo { Alignment = 65536, SizeInBytes = size }),
                     Vortice.Direct3D12.ResourceStates.GenericRead);
 
-            UploadDataToBuffer(tempResource, data);
+            var destSpan = tempResource.Map<T>(0, (int)data.SizeOf());
+            for (int i = 0; i < data.Count; i++)
+            {
+                destSpan[i] = data[i];
+            }
+            tempResource.Unmap(0);
 
             return tempResource;
-        }
-
-        private static unsafe void UploadDataToBuffer<T>(Vortice.Direct3D12.ID3D12Resource resource, T[] data)
-            where T : unmanaged
-        {
-            fixed (T* dataPtr = data)
-            {
-                var destPtr = resource.Map<Matrix4x4>(0);
-                Buffer.MemoryCopy(dataPtr, destPtr, data.SizeOf(), data.SizeOf());
-                resource.Unmap(0);
-            }
         }
     }
 }

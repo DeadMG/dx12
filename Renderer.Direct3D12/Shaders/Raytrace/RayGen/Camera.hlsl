@@ -1,20 +1,4 @@
-// Hit information, aka ray payload
-// This sample only carries a shading color and hit distance.
-// Note that the payload should be kept as small as possible,
-// and that its size must be declared in the corresponding
-// D3D12_RAYTRACING_SHADER_CONFIG pipeline subobjet.
-struct HitInfo
-{
-    float4 colorAndDistance;
-};
-
-// Attributes output by the raytracing when hitting a surface,
-// here the barycentric coordinates
-struct Attributes
-{
-    float2 bary;
-};
-
+#include "../Common.hlsl"
 
 // Raytracing output texture, accessed as a UAV
 RWTexture2D<float4> output : register(u0);
@@ -24,11 +8,11 @@ RaytracingAccelerationStructure SceneBVH : register(t0);
 
 struct CameraMatrices
 {
-    float3 worldTopLeft;
-    float3 worldTopRight;
-    float3 worldBottomLeft;
+    float3 WorldTopLeft: SV_Position;
+    float3 WorldTopRight: SV_Position;
+    float3 WorldBottomLeft: SV_Position;
     
-    float3 Origin;    
+    float3 Origin: SV_Position;
 };
 
 // Camera matrices
@@ -38,7 +22,7 @@ ConstantBuffer<CameraMatrices> Camera : register(b0);
 void RayGen()
 {
     // Initialize the ray payload
-    HitInfo payload;
+    MeshHit payload;
     payload.colorAndDistance = float4(0, 0, 0, 0);
 
     // Get the location within the dispatched 2D grid of work items
@@ -49,10 +33,10 @@ void RayGen()
     // The given dimensions are the absolute maximum of the frustum; they are on the boundaries. There's 1 more boundary than there is pixels.
     float2 dims = float2(DispatchRaysDimensions().xy) + 1.0f;
     
-    float3 top = (Camera.worldTopRight - Camera.worldTopLeft) / dims.x;
-    float3 down = (Camera.worldBottomLeft - Camera.worldTopLeft) / dims.y;
+    float3 top = (Camera.WorldTopRight - Camera.WorldTopLeft) / dims.x;
+    float3 down = (Camera.WorldBottomLeft - Camera.WorldTopLeft) / dims.y;
     
-    float3 target = Camera.worldTopLeft + (top * pixelCoordinate.x) + (down * pixelCoordinate.y);
+    float3 target = Camera.WorldTopLeft + (top * pixelCoordinate.x) + (down * pixelCoordinate.y);
     
     RayDesc ray;
     ray.Origin = Camera.Origin;
@@ -63,7 +47,7 @@ void RayGen()
     TraceRay(
         SceneBVH,
         0,
-        0xFF,
+        0xFF, // Mesh
         0,
         0,
         0,
@@ -71,10 +55,4 @@ void RayGen()
         payload);
     
     output[launchIndex] = float4(payload.colorAndDistance.rgb, 1.f);
-}
-
-[shader("miss")]
-void Miss(inout HitInfo payload : SV_RayPayload)
-{    
-    payload.colorAndDistance = float4(0.0f, 0.0f, 0.0f, -1.0f);
 }

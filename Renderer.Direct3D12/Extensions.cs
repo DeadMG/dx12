@@ -1,6 +1,8 @@
 ﻿using Data.Space;
 using Simulation;
 using System.Numerics;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 
 namespace Renderer.Direct3D12
 {
@@ -36,14 +38,6 @@ namespace Renderer.Direct3D12
             }
         }
 
-        public static Vortice.Direct3D12.GpuDescriptorHandle GPU(this Vortice.Direct3D12.ID3D12DescriptorHeap heap, int amount)
-        {
-            using (var device = heap.GetDevice<Vortice.Direct3D12.ID3D12Device>())
-            {
-                return heap.GetGPUDescriptorHandleForHeapStart().Offset(amount, device.GetDescriptorHandleIncrementSize(heap.Description.Type));
-            }
-        }
-
         public static Vortice.Mathematics.Matrix3x4 AsAffine(this Matrix4x4 matrix)
         {
             var worldMatrix = Matrix4x4.Transpose(matrix); // HLSL uses the opposite convention
@@ -51,6 +45,44 @@ namespace Renderer.Direct3D12
                 worldMatrix.M11, worldMatrix.M12, worldMatrix.M13, worldMatrix.M14,
                 worldMatrix.M21, worldMatrix.M22, worldMatrix.M23, worldMatrix.M24,
                 worldMatrix.M31, worldMatrix.M32, worldMatrix.M33, worldMatrix.M34);
+        }
+
+        public static byte[] GetBytes<T>(this T str)
+            where T : unmanaged
+        {
+            int size = Marshal.SizeOf(str);
+            byte[] arr = new byte[size];
+
+            IntPtr ptr = IntPtr.Zero;
+            try
+            {
+                ptr = Marshal.AllocHGlobal(size);
+                Marshal.StructureToPtr(str, ptr, true);
+                Marshal.Copy(ptr, arr, 0, size);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(ptr);
+            }
+            return arr;
+        }
+
+        public static T GetRandom<T>(this RandomNumberGenerator random)
+            where T : unmanaged
+        {
+            var buffer = new byte[Marshal.SizeOf<T>()];
+            random.GetBytes(buffer);
+
+            var ptr = Marshal.AllocHGlobal(Marshal.SizeOf<T>());
+            try
+            {
+                Marshal.Copy(buffer, 0, ptr, Marshal.SizeOf<T>());
+                return Marshal.PtrToStructure<T>(ptr);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(ptr);
+            }
         }
     }
 }

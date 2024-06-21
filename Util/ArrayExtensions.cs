@@ -1,15 +1,7 @@
-﻿using System.Runtime.InteropServices;
-
-namespace Util
+﻿namespace Util
 {
     public static class ArrayExtensions
     {
-        public static uint SizeOf<T>(this T[] array)
-            where T: unmanaged
-        {
-            return (uint)(Marshal.SizeOf<T>() * array.Length);
-        }
-
         public static Dispose<T> DisposeAll<T>(this T[] array)
             where T : IDisposable
         {

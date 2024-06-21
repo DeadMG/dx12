@@ -1,19 +1,4 @@
-// Hit information, aka ray payload
-// This sample only carries a shading color and hit distance.
-// Note that the payload should be kept as small as possible,
-// and that its size must be declared in the corresponding
-// D3D12_RAYTRACING_SHADER_CONFIG pipeline subobjet.
-struct HitInfo
-{
-    float4 colorAndDistance;
-};
-
-// Attributes output by the raytracing when hitting a surface,
-// here the barycentric coordinates
-struct Attributes
-{
-    float2 bary;
-};
+#include "../Common.hlsl"
 
 struct Vertex
 {
@@ -31,7 +16,7 @@ ConstantBuffer<Light> Ambient : register(b0);
 StructuredBuffer<Vertex> Vertices : register(t0);
 StructuredBuffer<uint> Indices : register(t1);
 
-[shader("closesthit")]
+[shader("ClosestHit")]
 void ClosestObjectHit(inout HitInfo payload, Attributes attrib)
 {
     float3 barycentrics = float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);

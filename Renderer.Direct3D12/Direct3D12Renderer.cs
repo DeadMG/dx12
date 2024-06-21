@@ -139,12 +139,6 @@ namespace Renderer.Direct3D12
 
         public void Resize(ScreenSize size)
         {
-            size = new ScreenSize
-            {
-                Width = Math.Max(size.Width, 1),
-                Height = Math.Max(size.Height, 1)
-            };
-
             var desc = swapChain.Description1;
 
             if (desc.Width == size.Width && desc.Height == size.Height) return; // Nothing needed
@@ -154,7 +148,6 @@ namespace Renderer.Direct3D12
 
             backBuffers = new BackBuffers(device, renderTargetHeap, swapChain, on12, deviceContext, immediateContext);
 
-            raytraceVolumeRenderer?.OnResize(size);
             draw.Resize(size);
         }
 
@@ -172,8 +165,6 @@ namespace Renderer.Direct3D12
                 raytraceVolumeRenderer.Render(new RendererParameters
                 {
                     RenderTarget = currentBuffer.Buffer,
-                    RenderTargetDescriptor = currentBuffer.DescriptorHandle,
-                    ScreenSize = new ScreenSize(swapChain.Description1.Width, swapChain.Description1.Height),
                 }, volumeRender.Volume, volumeRender.Camera);
             }
 
