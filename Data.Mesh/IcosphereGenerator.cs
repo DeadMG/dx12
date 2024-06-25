@@ -1,18 +1,12 @@
-﻿using Data.Space;
-using Simulation;
-using System.Diagnostics.CodeAnalysis;
-using System.Numerics;
-using System.Runtime.Intrinsics;
+﻿using System.Numerics;
 
-namespace Renderer.Direct3D12
+namespace Data.Mesh
 {
-    internal class IcosphereGenerator
+    public class IcosphereGenerator
     {
         const float X = .525731112119133606f;
         const float Z = .850650808352039932f;
         const float N = 0.0f;
-
-        readonly record struct Triangle(int[] Vertices) { }
 
         static readonly IReadOnlyList<Vector3> baseVertices = new List<Vector3>
         {
@@ -32,26 +26,26 @@ namespace Renderer.Direct3D12
 
         static readonly IReadOnlyList<Triangle> baseTriangles = new List<Triangle>
         {
-            new Triangle { Vertices = [0,4,1] },
-            new Triangle { Vertices = [0,9,4] },
-            new Triangle { Vertices = [9,5,4] },
-            new Triangle { Vertices = [4,5,8] },
-            new Triangle { Vertices = [4,8,1] },
-            new Triangle { Vertices = [8,10,1] },
-            new Triangle { Vertices = [8,3,10] },
-            new Triangle { Vertices = [5,3,8] },
-            new Triangle { Vertices = [5,2,3] },
-            new Triangle { Vertices = [2,7,3] },
-            new Triangle { Vertices = [7,10,3] },
-            new Triangle { Vertices = [7,6,10] },
-            new Triangle { Vertices = [7,11,6] },
-            new Triangle { Vertices = [11,0,6] },
-            new Triangle { Vertices = [0,1,6] },
-            new Triangle { Vertices = [6,1,10] },
-            new Triangle { Vertices = [9,0,11] },
-            new Triangle { Vertices = [9,11,2] },
-            new Triangle { Vertices = [9,2,5] },
-            new Triangle { Vertices = [7,2,11] }
+            new Triangle { MaterialIndex = 0, Vertices = [0,4,1] },
+            new Triangle { MaterialIndex = 0, Vertices = [0,9,4] },
+            new Triangle { MaterialIndex = 0, Vertices = [9,5,4] },
+            new Triangle { MaterialIndex = 0, Vertices = [4,5,8] },
+            new Triangle { MaterialIndex = 0, Vertices = [4,8,1] },
+            new Triangle { MaterialIndex = 0, Vertices = [8,10,1] },
+            new Triangle { MaterialIndex = 0, Vertices = [8,3,10] },
+            new Triangle { MaterialIndex = 0, Vertices = [5,3,8] },
+            new Triangle { MaterialIndex = 0, Vertices = [5,2,3] },
+            new Triangle { MaterialIndex = 0, Vertices = [2,7,3] },
+            new Triangle { MaterialIndex = 0, Vertices = [7,10,3] },
+            new Triangle { MaterialIndex = 0, Vertices = [7,6,10] },
+            new Triangle { MaterialIndex = 0, Vertices = [7,11,6] },
+            new Triangle { MaterialIndex = 0, Vertices = [11,0,6] },
+            new Triangle { MaterialIndex = 0, Vertices = [0,1,6] },
+            new Triangle { MaterialIndex = 0, Vertices = [6,1,10] },
+            new Triangle { MaterialIndex = 0, Vertices = [9,0,11] },
+            new Triangle { MaterialIndex = 0, Vertices = [9,11,2] },
+            new Triangle { MaterialIndex = 0, Vertices = [9,2,5] },
+            new Triangle { MaterialIndex = 0, Vertices = [7,2,11] }
         };
 
         struct IndexPair
@@ -80,7 +74,7 @@ namespace Renderer.Direct3D12
             }
         }
 
-        public IcosphereMesh Generate(int subdivisions)
+        public Mesh Generate(int subdivisions, Material material)
         {
             var vertices = new List<Vector3>(baseVertices.Select(v => Vector3.Normalize(v)));
             var triangles = new List<Triangle>(baseTriangles);
@@ -90,12 +84,7 @@ namespace Renderer.Direct3D12
                 triangles = Subdivide(vertices, triangles);
             }
 
-            return new IcosphereMesh
-            {
-                Indices = triangles.SelectMany(x => x.Vertices.Select(x => (uint)x)).ToArray(),
-                Vertices = vertices.ToArray(),
-                Id = Guid.NewGuid()
-            };
+            return Mesh.NewFromPoints(vertices.ToArray(), triangles.ToArray(), [material]);
         }
 
         private List<Triangle> Subdivide(List<Vector3> vertices, List<Triangle> triangles)
@@ -111,10 +100,10 @@ namespace Renderer.Direct3D12
                     mid[edge] = VertexForEdge(lookup, vertices, tri.Vertices[edge], tri.Vertices[(edge + 1) % 3]);
                 }
 
-                result.Add(new Triangle { Vertices = [tri.Vertices[0], mid[0], mid[2]] });
-                result.Add(new Triangle { Vertices = [tri.Vertices[1], mid[1], mid[0]] });
-                result.Add(new Triangle { Vertices = [tri.Vertices[2], mid[2], mid[1]] });
-                result.Add(new Triangle { Vertices = [mid[0], mid[1], mid[2]] });
+                result.Add(new Triangle { MaterialIndex = 0, Vertices = [tri.Vertices[0], mid[0], mid[2]] });
+                result.Add(new Triangle { MaterialIndex = 0, Vertices = [tri.Vertices[1], mid[1], mid[0]] });
+                result.Add(new Triangle { MaterialIndex = 0, Vertices = [tri.Vertices[2], mid[2], mid[1]] });
+                result.Add(new Triangle { MaterialIndex = 0, Vertices = [mid[0], mid[1], mid[2]] });
             }
 
             return result;
@@ -132,12 +121,5 @@ namespace Renderer.Direct3D12
 
             return newIndex;
         }
-    }
-
-    public class IcosphereMesh
-    {
-        public required Vector3[] Vertices { get; init; }
-        public required uint[] Indices { get; init; }
-        public required Guid Id { get; init; }
     }
 }

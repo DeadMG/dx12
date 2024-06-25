@@ -7,8 +7,9 @@ namespace Renderer.Direct3D12
 {
     internal class RaytracingVolumeRenderer : IDisposable
     {
-        private readonly VertexCalculator vertexCalculator = new VertexCalculator();
         private readonly DisposeTracker disposeTracker = new DisposeTracker();
+        private const int maxRays = 2;
+
         private readonly CommandListPool directListPool;
         private readonly Vortice.Direct3D12.ID3D12Device5 device;
 
@@ -17,7 +18,6 @@ namespace Renderer.Direct3D12
         private readonly StateObjectProperties stateObjectProperties;
 
         private readonly Shaders.Raytrace.Hit.Object objectShader;
-        private readonly Shaders.Raytrace.Hit.Sun sunShader;
         private readonly Shaders.Raytrace.Miss.Black missShader;
         private readonly Shaders.Raytrace.RayGen.Camera rayGenShader;
 
@@ -26,19 +26,18 @@ namespace Renderer.Direct3D12
             this.directListPool = directListPool;
             this.device = device;
 
-            objectShader = disposeTracker.Track(new Shaders.Raytrace.Hit.Object(device, meshResourceCache));
-            sunShader = disposeTracker.Track(new Shaders.Raytrace.Hit.Sun(device, meshResourceCache));
+            objectShader = disposeTracker.Track(new Shaders.Raytrace.Hit.Object(device, meshResourceCache, maxRays));
             missShader = disposeTracker.Track(new Shaders.Raytrace.Miss.Black(device));
             rayGenShader = disposeTracker.Track(new Shaders.Raytrace.RayGen.Camera(device, screenSize, renderTargetFormat));
 
             emptyGlobalSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1())).Name("Empty global signature");
 
-            var shaderConfigSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.RaytracingShaderConfig { MaxAttributeSizeInBytes = 8, MaxPayloadSizeInBytes = 16 });
+            var shaderConfigSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.RaytracingShaderConfig { MaxAttributeSizeInBytes = 8, MaxPayloadSizeInBytes = 32 });
 
             Vortice.Direct3D12.StateSubObject[] fixedSubobjects = [
                 shaderConfigSubobject,
                 new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.SubObjectToExportsAssociation(shaderConfigSubobject, Shaders.SelectMany(s => s.Exports).ToArray())),
-                new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.RaytracingPipelineConfig(2))
+                new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.RaytracingPipelineConfig(maxRays))
             ];
 
             state = disposeTracker.Track(device.CreateStateObject(new Vortice.Direct3D12.StateObjectDescription(Vortice.Direct3D12.StateObjectType.RaytracingPipeline,
@@ -48,7 +47,7 @@ namespace Renderer.Direct3D12
             stateObjectProperties = disposeTracker.Track(new StateObjectProperties(state));
         }
 
-        private IShader[] Shaders => [objectShader, sunShader, missShader, rayGenShader];
+        private IShader[] Shaders => [objectShader, missShader, rayGenShader];
 
         public void Render(RendererParameters rp, Volume volume, Camera camera)
         {

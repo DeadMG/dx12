@@ -1,5 +1,4 @@
-﻿using Data.Space;
-using Simulation;
+﻿using Simulation;
 
 namespace Renderer.Direct3D12.Shaders
 {

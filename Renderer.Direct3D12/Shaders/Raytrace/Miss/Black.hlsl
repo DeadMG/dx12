@@ -1,7 +1,15 @@
 #include "../Common.hlsl"
 
 [shader("miss")]
-void Miss(inout MeshHit payload : SV_RayPayload)
+void Miss(inout RayPayload payload : SV_RayPayload)
 {
-    payload.colorAndDistance = float4(0.0f, 0.0f, 0.0f, 0.0f);
+    // Direct camera ray
+    if (payload.Depth == 1)
+    {
+        payload.IncomingLight = float3(0, 0, 0);
+    }
+    else
+    {
+        //payload.IncomingLight = float3(0.1, 0.1, 0.1);        
+    }
 }

@@ -4,97 +4,130 @@ struct Vertex
 {
     float3 Position;
     float3 Normal;
-    float3 Colour;
 };
 
-struct Light
+struct SettingsS
 {
-    float Level;
-    uint Sources;
     uint Seed;
+    uint MaxRays;
 };
 
-struct LightSource
-{
-    float3 Position;
-    float Size;
-};
-
-ConstantBuffer<Light> Ambient : register(b0);
+ConstantBuffer<SettingsS> Settings : register(b0);
 StructuredBuffer<Vertex> Vertices : register(t0);
-StructuredBuffer<uint> Indices : register(t1);
-StructuredBuffer<LightSource> LightSources : register(t2);
-RaytracingAccelerationStructure SceneBVH : register(t3);
-
-// Generates a seed for a random number generator from 2 inputs plus a backoff
-uint initRand(uint val0, uint val1, uint backoff = 16)
-{
-    uint v0 = val0, v1 = val1, s0 = 0;
-
-    [unroll]
-    for (uint n = 0; n < backoff; n++)
-    {
-        s0 += 0x9e3779b9;
-        v0 += ((v1 << 4) + 0xa341316c) ^ (v1 + s0) ^ ((v1 >> 5) + 0xc8013ea4);
-        v1 += ((v0 << 4) + 0xad90777d) ^ (v0 + s0) ^ ((v0 >> 5) + 0x7e95761e);
-    }
-    return v0;
-}
+StructuredBuffer<uint> VertexIndices : register(t1);
+StructuredBuffer<uint> MaterialIndices : register(t2);
+StructuredBuffer<Material> Materials : register(t3);
+RaytracingAccelerationStructure SceneBVH : register(t4);
 
 // Takes our seed, updates it, and returns a pseudorandom float in [0..1]
-float nextRand(inout uint s)
+float uniformRand(inout uint s)
 {
-    s = (1664525u * s + 1013904223u);
-    return float(s & 0x00FFFFFF) / float(0x01000000);
+    s = s * 747796405 + 2891336453;
+    uint result = ((s >> ((s >> 28) + 4)) ^ s) * 277803737;
+    
+    return result / 4294967285.0;
+}
+
+float normalRand(inout uint s)
+{
+    float theta = 2 * PI * uniformRand(s);
+    float rho = sqrt(-2 * log(uniformRand(s)));
+    return rho * cos(theta);
+}
+
+float3 directionRand(inout uint s)
+{
+    return normalize(float3(normalRand(s), normalRand(s), normalRand(s)));
+}
+
+uint bufferIndex(uint2 index)
+{
+    uint2 dims = DispatchRaysDimensions().xy;
+    
+    uint x = clamp(index.x, 0, dims.x);
+    uint y = clamp(index.y, 0, dims.y);
+    
+    return x + (dims.x * y);
+}
+
+float3 alignWith(float3 normal, float3 direction)
+{
+    return direction * sign(dot(normal, direction));
+}
+
+float3 positionMul(float3 pos, float4x4 mat)
+{    
+    float4 result = mul(float4(pos, 1), mat);
+    return result.xyz;
+}
+
+float3 normalMul(float3 objectNormal, float4x4 mat)
+{
+    float4 result = mul(float4(objectNormal, 0), mat);
+    return normalize(result.xyz);
+}
+
+float3 faceNormal(uint vertId)
+{
+    float4x4 worldMatrix = float4x4(ObjectToWorld3x4(), float4(0, 0, 0, 1));
+    float3 a = Vertices[VertexIndices[vertId]].Position;
+    float3 b = Vertices[VertexIndices[vertId + 1]].Position;
+    float3 c = Vertices[VertexIndices[vertId + 2]].Position;
+    
+    return normalize(normalMul(normalize(cross(a - b, c - b)), worldMatrix));
 }
 
 [shader("closesthit")]
-void ClosestObjectHit(inout MeshHit payload, Attributes attrib)
+void ClosestObjectHit(inout RayPayload payload, Attributes attrib)
 {
-    float3 barycentrics = float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
+    float3 barycentrics = barycentric(attrib);
+    
     uint vertId = 3 * PrimitiveIndex();
     
-    float3 hitColor = Vertices[Indices[vertId + 0]].Colour * barycentrics.x +
-                    Vertices[Indices[vertId + 1]].Colour * barycentrics.y +
-                    Vertices[Indices[vertId + 2]].Colour * barycentrics.z;
+    Vertex a = Vertices[VertexIndices[vertId]];
+    Vertex b = Vertices[VertexIndices[vertId + 1]];
+    Vertex c = Vertices[VertexIndices[vertId + 2]];
     
-    float3 startPosition = WorldRayOrigin() + RayTCurrent() * WorldRayDirection();
+    float3 objectNormal = normalize(barrypolate(barycentrics, a.Normal, b.Normal, c.Normal));
+    float3 rayDirection = WorldRayDirection();
+    float4x4 worldMatrix = float4x4(ObjectToWorld3x4(), float4(0, 0, 0, 1));
+    float3 baseNormal = normalMul(objectNormal, worldMatrix);
+    float3 face = faceNormal(vertId);
+    float3 startPosition = WorldRayOrigin() + (RayTCurrent() * rayDirection);
     
-    float lightLevel = Ambient.Level;
+    float3 normal = alignWith(-rayDirection, baseNormal);
     
     uint2 index = DispatchRaysIndex().xy;
     
-    uint seed = initRand(Ambient.Seed, (index.x + 1) * (index.y + 1));
+    uint seed = Settings.Seed * (index.x + 1) * (index.y + 1);
     
-    float theta = nextRand(seed);
-    float phi = nextRand(seed);
-    
-    float3 offset = float3(sin(phi) * cos(theta), sin(phi) * sin(theta), cos(phi));
-    
-    for (int i = 0; i < Ambient.Sources; ++i)
-    {
-        LightHit lightPayload;
+    Material m = Materials[MaterialIndices[PrimitiveIndex()]];
         
-        float3 target = LightSources[i].Position + (offset * LightSources[i].Size);
+    if (payload.Depth < Settings.MaxRays && m.EmissionStrength < 0.1)
+    {
+        payload.Depth += 1;
+        
+        float3 offset = alignWith(normal, directionRand(seed));
+        float3 direction = normalize(normal + offset);
         
         RayDesc ray;
         ray.Origin = startPosition;
-        ray.Direction = normalize(target - startPosition);
+        ray.Direction = direction;
         ray.TMin = 0.01;
         ray.TMax = 10000;
     
         TraceRay(
             SceneBVH,
             0,
-            0xFF, // Light
-            1,
+            0xFF,
+            0,
             0,
             0,
             ray,
-            lightPayload);
-        
-        lightLevel = min(1, lightLevel + lightPayload.Intensity);
+            payload);
     }
-    
-    payload.colorAndDistance = float4(lightLevel * hitColor, RayTCurrent());
+
+    //payload.IncomingLight = float3(1, 0, 0);
+    payload.IncomingLight += m.EmissionColour * m.EmissionStrength * payload.RayColour;
+    payload.RayColour *= m.Colour;
 }

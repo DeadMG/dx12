@@ -1,4 +1,7 @@
-﻿using Simulation;
+﻿using Data.Mesh;
+using Data.Space;
+using Simulation;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using Util;
 
@@ -16,15 +19,19 @@ namespace Renderer.Direct3D12
             this.device = device;
         }
 
-        public MeshData Load<T>(Guid id, string name, Func<T[]> lazyVerts, uint[] indices, PooledCommandList list)
-            where T : unmanaged
+        public MeshData Load(string name, Mesh mesh, PooledCommandList list)
         {
-            if (cache.ContainsKey(id)) return cache[id];
+            if (cache.ContainsKey(mesh.Id)) return cache[mesh.Id];
 
-            var verts = lazyVerts();
+            var vertices = mesh.Vertices.Select(x => new HlslVertex { Normal = x.Normal, Position = x.Position }).ToArray();
+            var vertexIndices = mesh.Triangles.SelectMany(x => x.Vertices).ToArray();
+            var materialIndices = mesh.Triangles.Select(x => (uint)x.MaterialIndex).ToArray();
+            var materials = mesh.Materials.Select(m => new HlslMaterial { Colour = m.Colour, EmissionColour = m.EmissionColour, EmissionStrength = m.EmissionStrength }).ToArray();
 
-            var vertexBuffer = disposeTracker.Track(device.CreateStaticBuffer(verts.SizeOf()).Name($"{name} vertex buffer"));
-            var indexBuffer = disposeTracker.Track(device.CreateStaticBuffer(indices.SizeOf()).Name($"{name} index buffer"));
+            var vertexBuffer = disposeTracker.Track(device.CreateStaticBuffer(vertices.SizeOf()).Name($"{name} vertex buffer"));
+            var indexBuffer = disposeTracker.Track(device.CreateStaticBuffer(vertexIndices.SizeOf()).Name($"{name} vertex index buffer"));
+            var materialIndexBuffer = disposeTracker.Track(device.CreateStaticBuffer(materialIndices.SizeOf())).Name($"{name} material index buffer");
+            var materialBuffer = disposeTracker.Track(device.CreateStaticBuffer(materials.SizeOf())).Name($"{name} material buffer");
 
             var asDesc = new Vortice.Direct3D12.BuildRaytracingAccelerationStructureInputs
             {
@@ -40,14 +47,14 @@ namespace Renderer.Direct3D12
                         Triangles = new Vortice.Direct3D12.RaytracingGeometryTrianglesDescription
                         {
                             IndexBuffer = indexBuffer.GPUVirtualAddress,
-                            IndexCount = indices.Length,
-                            IndexFormat = Vortice.DXGI.Format.R32_UInt,
+                            IndexCount = vertexIndices.Length,
+                            IndexFormat = IndexFormat(vertexIndices[0].GetType()),
                             VertexBuffer = new Vortice.Direct3D12.GpuVirtualAddressAndStride
                             {
                                 StartAddress = vertexBuffer.GPUVirtualAddress,
-                                StrideInBytes = (uint)Marshal.SizeOf(verts[0].GetType()),
+                                StrideInBytes = (uint)Marshal.SizeOf(vertices[0].GetType()),
                             },
-                            VertexCount = verts.Length,
+                            VertexCount = mesh.Vertices.Length,
                             VertexFormat = Vortice.DXGI.Format.R32G32B32_Float,
                             Transform3x4 = 0,
                         },
@@ -60,8 +67,10 @@ namespace Renderer.Direct3D12
                 Type = Vortice.Direct3D12.RaytracingAccelerationStructureType.BottomLevel
             };
 
-            list.UploadData(vertexBuffer, verts);
-            list.UploadData(indexBuffer, indices);
+            list.UploadData(vertexBuffer, vertices);
+            list.UploadData(indexBuffer, vertexIndices);
+            list.UploadData(materialIndexBuffer, materialIndices);
+            list.UploadData(materialBuffer, materials);
 
             var prebuild = device.GetRaytracingAccelerationStructurePrebuildInfo(asDesc);
 
@@ -76,13 +85,28 @@ namespace Renderer.Direct3D12
                 SourceAccelerationStructureData = 0,
             });
 
-            var data = new MeshData { BLAS = result, IndexBuffer = indexBuffer, VertexBuffer = vertexBuffer };
+            var data = new MeshData { BLAS = result, VertexIndexBuffer = indexBuffer, VertexBuffer = vertexBuffer, MaterialBuffer = materialBuffer, MaterialIndexBuffer = materialIndexBuffer };
 
-            cache[id] = data;
+            cache[mesh.Id] = data;
 
             list.List.ResourceBarrierUnorderedAccessView(result);
 
-            return cache[id];
+            return cache[mesh.Id];
+        }
+
+        private Vortice.DXGI.Format IndexFormat(Type type)
+        {
+            if (type == typeof(short) || type == typeof(ushort))
+            {
+                return Vortice.DXGI.Format.R16_UInt;
+            }
+
+            if (type == typeof(int) || type == typeof(uint))
+            {
+                return Vortice.DXGI.Format.R32_UInt;
+            }
+
+            throw new InvalidOperationException();
         }
 
         public void Dispose()
@@ -93,8 +117,33 @@ namespace Renderer.Direct3D12
         public class MeshData
         {
             public required Vortice.Direct3D12.ID3D12Resource VertexBuffer { get; init; }
-            public required Vortice.Direct3D12.ID3D12Resource IndexBuffer { get; init; }
+            public required Vortice.Direct3D12.ID3D12Resource VertexIndexBuffer { get; init; }
+            public required Vortice.Direct3D12.ID3D12Resource MaterialIndexBuffer { get; init; }
+            public required Vortice.Direct3D12.ID3D12Resource MaterialBuffer { get; init; }
             public required Vortice.Direct3D12.ID3D12Resource BLAS { get; init; }
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        private struct HlslMaterial
+        {
+            [FieldOffset(0)]
+            public RGB Colour;
+
+            [FieldOffset(16)]
+            public RGB EmissionColour;
+
+            [FieldOffset(28)]
+            public float EmissionStrength;
+        }
+
+        [StructLayout(LayoutKind.Explicit, Size = 32)]
+        private struct HlslVertex
+        {
+            [FieldOffset(0)]
+            public Vector3 Position;
+
+            [FieldOffset(16)]
+            public Vector3 Normal;
         }
     }
 }

@@ -15,12 +15,28 @@ namespace Renderer.Direct3D12
                 Vortice.D3DCompiler.EffectFlags.None);
         }
 
-        public static ReadOnlyMemory<byte> LoadDxil(string filename, string profile)
+        public static ReadOnlyMemory<byte> LoadDxil(string filename, string profile, string? entryPoint = null)
         {
+            var arguments = new List<string>
+            {
+                filename,
+                "-Zi",
+                "-Qembed_debug",
+                $"-T {profile}",
+#if DEBUG
+                "-Od"
+#endif
+            };
+
+            if (entryPoint != null)
+            {
+                arguments.Add($"-E {entryPoint}");
+            }
+
             var path = Path.GetFullPath(filename);
             using (var compiler = Vortice.Dxc.Dxc.CreateDxcCompiler<Vortice.Dxc.IDxcCompiler3>())
             using (var utils = Vortice.Dxc.Dxc.CreateDxcUtils())
-            using (var result = compiler.Compile(File.ReadAllText(path), ["-Zi", "-Qembed_debug", $"-T {profile}"], new IncludeHandler(path, utils)))
+            using (var result = compiler.Compile(File.ReadAllText(path), arguments.ToArray(), new IncludeHandler(path, utils)))
             {
                 if (!result.GetStatus().Success)
                 {
@@ -41,17 +57,13 @@ namespace Renderer.Direct3D12
                 this.utils = utils;
             }
 
-            public void Dispose()
-            {
-            }
-
             public Result LoadSource(string filename, out Vortice.Dxc.IDxcBlob includeSource)
             {
                 includeSource = null;
 
                 try
                 {
-                    includeSource = utils.LoadFile(Path.Combine(Path.GetDirectoryName(path), filename), null);
+                    includeSource = utils.LoadFile(filename, null);
                 } 
                 catch (Exception ex)
                 {

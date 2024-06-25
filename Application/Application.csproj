@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Data.Mesh\Data.Mesh.csproj" />
     <ProjectReference Include="..\Simulation.Physics\Simulation.Physics.csproj" />
     <ProjectReference Include="..\Platform.Contracts\Platform.Contracts.csproj" />
     <ProjectReference Include="..\Platform.Windows\Platform.Windows.csproj" />

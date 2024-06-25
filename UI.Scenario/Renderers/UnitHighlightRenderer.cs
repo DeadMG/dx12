@@ -1,6 +1,7 @@
 ﻿using Data.Space;
 using Platform.Contracts;
 using Simulation;
+using System.Numerics;
 
 namespace UI.Renderers
 {
@@ -15,6 +16,14 @@ namespace UI.Renderers
             var height = Math.Abs(aabb.End.Y - aabb.Start.Y) / 3;
 
             var thickness = Math.Max((width + height) / 30, 1);
+
+            foreach (var vertex in unit.Blueprint.Mesh.Vertices)
+            {
+                var start = Project.Screen(Vector3.Transform(vertex.Position, unit.WorldMatrix), camera.ViewProjection, camera.ScreenSize);
+                var end = Project.Screen(Vector3.Transform(vertex.Position + vertex.Normal, unit.WorldMatrix), camera.ViewProjection, camera.ScreenSize);
+
+                draw.DrawLine(new ScreenLine { Start = start, End = end }, brush);
+            }
 
             draw.FillGeometry(
                 new ScreenPosition[]

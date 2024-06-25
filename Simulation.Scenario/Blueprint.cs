@@ -1,4 +1,6 @@
-﻿namespace Simulation
+﻿using Data.Mesh;
+
+namespace Simulation
 {
     public class Blueprint
     {

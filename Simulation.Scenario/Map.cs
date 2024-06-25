@@ -1,4 +1,4 @@
-﻿using Data.Space;
+﻿using Data.Mesh;
 using System.Numerics;
 
 namespace Simulation
@@ -7,17 +7,14 @@ namespace Simulation
     {
         public required float AmbientLightLevel { get; init; }
         public required Vector3 Dimensions { get; init; }
-        public required Sun[] Suns { get; init; }
+        public required PredefinedObject[] Objects { get; init; }
     }
 
-    public class Sun
+    public struct PredefinedObject
     {
-        public required RGB MeshColour { get; init; }
-
-        public required RGB LightColour { get; init; }
-        public required float LightIntensity { get; init; }
-
         public required Vector3 Position { get; init; }
         public required float Size { get; init; }
+        public required Mesh Mesh { get; init; }
+        public required string Name { get; init; }
     }
 }

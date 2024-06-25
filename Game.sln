@@ -21,7 +21,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Util", "Util\Util.csproj", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UI.Scenario", "UI.Scenario\UI.Scenario.csproj", "{FBC6BEF9-5EF7-483F-A8A6-FF1A45538B90}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Renderer.Direct3D12.Shaders", "Renderer.Direct3D12.Shaders\Renderer.Direct3D12.Shaders.csproj", "{355D0B65-40BE-44DC-824B-419D3B6ADC9A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Renderer.Direct3D12.Shaders", "Renderer.Direct3D12.Shaders\Renderer.Direct3D12.Shaders.csproj", "{355D0B65-40BE-44DC-824B-419D3B6ADC9A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Data.Mesh", "Data.Mesh\Data.Mesh.csproj", "{4A9092D3-2C19-4856-A312-FC6F074E2A84}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -69,6 +71,10 @@ Global
 		{355D0B65-40BE-44DC-824B-419D3B6ADC9A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{355D0B65-40BE-44DC-824B-419D3B6ADC9A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{355D0B65-40BE-44DC-824B-419D3B6ADC9A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4A9092D3-2C19-4856-A312-FC6F074E2A84}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4A9092D3-2C19-4856-A312-FC6F074E2A84}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4A9092D3-2C19-4856-A312-FC6F074E2A84}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4A9092D3-2C19-4856-A312-FC6F074E2A84}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

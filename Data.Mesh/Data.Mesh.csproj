@@ -4,12 +4,9 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <RootNamespace>Simulation</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Data.Mesh\Data.Mesh.csproj" />
-    <ProjectReference Include="..\Simulation.Physics\Simulation.Physics.csproj" />
     <ProjectReference Include="..\Data.Space\Data.Space.csproj" />
   </ItemGroup>
 

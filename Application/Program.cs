@@ -1,5 +1,7 @@
-﻿using Data.Space;
+﻿using Data.Mesh;
+using Data.Space;
 using Platform.Contracts;
+using Simulation;
 using System.Diagnostics;
 using System.Numerics;
 using UI;
@@ -17,72 +19,69 @@ namespace Application
             var scenario = new Simulation.Scenario();
             var player = scenario.AddPlayer(scenario.AddForce());
 
-            var print = new Simulation.Blueprint
+            var sunMesh = new IcosphereGenerator().Generate(3, new Material { EmissionStrength = 0.6f, EmissionColour = new RGB { G = 1, B = 1, R = 1 }, Colour = new RGB { B = 1, G = 0.1f, R = 0.1f } });
+
+            var print = new Blueprint
             {
                 Name = "Hypercraft",
-                Mesh = new Simulation.Mesh
-                {
-                    Id = Guid.NewGuid(),
-                    Vertices =
+                Mesh = Mesh.NewFromPoints(
                     [
-                        new Simulation.Vertex { Position = new Vector3(3.0f, 0.0f, 0.0f), Colour = new RGB { R = 0, G = 1, B = 0 } },
-                        new Simulation.Vertex { Position = new Vector3(0.0f, 3.0f, -3.0f), Colour = new RGB { R = 0, G = 0, B = 1 }, }, 
-                        new Simulation.Vertex { Position = new Vector3(0.0f, 0.0f, 10.0f), Colour = new RGB { R = 1, G = 0, B = 0 }, },
-                        new Simulation.Vertex { Position = new Vector3(-3.0f, 0.0f, 0.0f), Colour = new RGB { R = 0, G = 1, B = 1 }, },
-                    
+                        new Vector3(3.0f, 0.0f, 0.0f),
+                        new Vector3(0.0f, 3.0f, -3.0f),
+                        new Vector3(0.0f, 0.0f, 10.0f),
+                        new Vector3(-3.0f, 0.0f, 0.0f),
+                        
                         // left gun
-                        new Simulation.Vertex { Position = new Vector3(3.2f, -1.0f, -3.0f), Colour = new RGB { R = 0, G = 0, B = 1 }, },
-                        new Simulation.Vertex { Position = new Vector3(3.2f, -1.0f, 11.0f), Colour = new RGB { R = 0, G = 1, B = 0 }, },
-                        new Simulation.Vertex { Position = new Vector3(2.0f, 1.0f, 2.0f), Colour = new RGB { R = 1, G = 0, B = 0 }, },
-                    
+                        new Vector3(3.2f, -1.0f, -3.0f),
+                        new Vector3(3.2f, -1.0f, 11.0f),
+                        new Vector3(2.0f, 1.0f, 2.0f),
+                        
                         // right gun
-                        new Simulation.Vertex { Position = new Vector3(-3.2f, -1.0f, -3.0f), Colour = new RGB { R = 0, G = 0, B = 1 }, },
-                        new Simulation.Vertex { Position = new Vector3(-3.2f, -1.0f, 11.0f), Colour = new RGB { R = 0, G = 1, B = 0 }, },
-                        new Simulation.Vertex { Position = new Vector3(-2.0f, 1.0f, 2.0f), Colour = new RGB { R = 1, G = 0, B = 0 }, },
+                        new Vector3(-3.2f, -1.0f, -3.0f),
+                        new Vector3(-3.2f, -1.0f, 11.0f),
+                        new Vector3(-2.0f, 1.0f, 2.0f)
                     ],
-                    Indices =
                     [
-                        0, 1, 2,
-                        2, 1, 3,
-                        3, 1, 0,
-                        0, 2, 3,
-                        4, 5, 6,
-                        7, 8, 9,
+                        new Triangle { Vertices = [0, 1, 2], MaterialIndex = 0 },
+                        new Triangle { Vertices = [2, 1, 3], MaterialIndex = 0 },
+                        new Triangle { Vertices = [3, 1, 0], MaterialIndex = 0 },
+                        new Triangle { Vertices = [0, 2, 3], MaterialIndex = 0 },
+                        new Triangle { Vertices = [6, 5, 4], MaterialIndex = 0 },
+                        new Triangle { Vertices = [7, 8, 9], MaterialIndex = 0 },
+                    ], 
+                    [
+                        new Material
+                        {
+                            EmissionStrength = 0,
+                            EmissionColour = new RGB(0, 0, 0),
+                            Colour = new RGB(1, 1, 1)
+                        }
                     ]
-                },
+                ),
                 Acceleration = 3,
                 MaxSpeed = 100,
                 TurnRate = (float)Math.PI / 2,
             };
 
-            var map = new Simulation.Map {
+            var map = new Map {
                 AmbientLightLevel = 0.1f,
                 Dimensions = new Vector3(100000, 100000, 100000),
-                Suns = [
-                    new Simulation.Sun
+                Objects = [
+                    new PredefinedObject
                     {
-                        Size = 4,
+                        Mesh = sunMesh,
+                        Size = 20,
                         Position = new Vector3(-40, 0, 40),
-                        MeshColour = new RGB { R = 0.1f, G = 0.1f, B = 1 },
-                        LightColour = new RGB { G = 1, B = 1, R = 1 },
-                        LightIntensity = 0.6f,
-                    },
-                    //new Simulation.Sun 
-                    //{
-                    //    Size = 100,
-                    //    Position = new Vector3(200, 0, 200),
-                    //    MeshColour = new RGB { R = 1, G = 1, B = 0.1f },
-                    //    LightColour = new RGB { G = 1, B = 1, R = 1 },
-                    //    LightIntensity = 0.4f,
-                    //}
-                ] 
+                        Name = "Blue sun"
+                    }
+                ]
             };
             var volume = scenario.AddVolume(map);
 
-            volume.Add(new Simulation.Unit(player, print, new Vector3(8, 0, 8), Quaternion.Identity));
-            volume.Add(new Simulation.Unit(player, print, new Vector3(-8, 0, 8), Quaternion.Identity));
-            volume.Add(new Simulation.Unit(player, print, new Vector3(-8, 0, -8), Quaternion.Identity));
-            volume.Add(new Simulation.Unit(player, print, new Vector3(8, 0, -8), Quaternion.Identity));
+            volume.Add(new Unit(player, print, new Vector3(8, 0, 8), Quaternion.Identity));
+            volume.Add(new Unit(player, print, new Vector3(-8, 0, 8), Quaternion.Identity));
+            volume.Add(new Unit(player, print, new Vector3(-8, 0, -8), Quaternion.Identity));
+            volume.Add(new Unit(player, print, new Vector3(8, 0, -8), Quaternion.Identity));
 
             var window = platform.CreateWindow();
             var screenSize = await window.GetSize();

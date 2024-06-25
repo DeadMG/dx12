@@ -22,8 +22,10 @@ ConstantBuffer<CameraMatrices> Camera : register(b0);
 void RayGen()
 {
     // Initialize the ray payload
-    MeshHit payload;
-    payload.colorAndDistance = float4(0, 0, 0, 0);
+    RayPayload payload;
+    payload.IncomingLight = float3(0, 0, 0);
+    payload.RayColour = float3(1, 1, 1);
+    payload.Depth = 1;
 
     // Get the location within the dispatched 2D grid of work items
     // (often maps to pixels, so this could represent a pixel coordinate).
@@ -47,12 +49,12 @@ void RayGen()
     TraceRay(
         SceneBVH,
         0,
-        0xFF, // Mesh
+        0xFF,
         0,
         0,
         0,
         ray,
         payload);
     
-    output[launchIndex] = float4(payload.colorAndDistance.rgb, 1.f);
+    output[launchIndex] = float4(payload.IncomingLight, 1.0f);
 }
