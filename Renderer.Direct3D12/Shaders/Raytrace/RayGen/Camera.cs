@@ -116,7 +116,7 @@ namespace Renderer.Direct3D12.Shaders.Raytrace.RayGen
 
         public void CommitRaytracing(RaytraceCommit commit)
         {
-            var sigmaD = 5;
+            var sigmaD = 2;
 
             commit.List.List.ResourceBarrierUnorderedAccessView(screenResources.OutputSrv);
 
@@ -129,7 +129,7 @@ namespace Renderer.Direct3D12.Shaders.Raytrace.RayGen
                 KernelWidth = sigmaD,
                 KernelHeight = sigmaD,
                 SigmaD = 2 * (float)Math.Pow(sigmaD, 2),
-                SigmaR = 2 * (float)Math.Pow(10, 2),
+                SigmaR = 2 * (float)Math.Pow(100, 2),
                 ImageHeight = screenSize.Height,
                 ImageWidth = screenSize.Width,
             }]);

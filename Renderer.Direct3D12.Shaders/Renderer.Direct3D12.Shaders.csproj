@@ -8,10 +8,27 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Raytrace\Common.hlsl" />
+    <None Remove="Raytrace\Hit\Object.hlsl" />
+    <None Remove="Raytrace\Miss\Black.hlsl" />
+    <None Remove="Raytrace\RayGen\Camera.hlsl" />
+    <None Remove="Raytrace\RayGen\Filter.hlsl" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Raytrace\Common.hlsl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Raytrace\Hit\Object.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Raytrace\Hit\Sun.hlsl">
+    <Content Include="Raytrace\Miss\Black.hlsl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Raytrace\RayGen\Camera.hlsl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Raytrace\RayGen\Filter.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

@@ -24,7 +24,7 @@ namespace Renderer.Direct3D12
                 "-Qembed_debug",
                 $"-T {profile}",
 #if DEBUG
-                "-Od"
+                "-Od",
 #endif
             };
 

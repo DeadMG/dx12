@@ -10,6 +10,6 @@ void Miss(inout RayPayload payload : SV_RayPayload)
     }
     else
     {
-        //payload.IncomingLight = float3(0.1, 0.1, 0.1);        
+        payload.IncomingLight = float3(0.1, 0.1, 0.1);        
     }
 }

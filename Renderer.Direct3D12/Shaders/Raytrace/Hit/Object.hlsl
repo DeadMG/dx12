@@ -37,7 +37,10 @@ float normalRand(inout uint s)
 
 float3 directionRand(inout uint s)
 {
-    return normalize(float3(normalRand(s), normalRand(s), normalRand(s)));
+    float theta = acos((2 * uniformRand(s)) - 1) - (PI / 2);
+    float phi = uniformRand(s) * 2 * PI;
+    
+    return normalize(float3(cos(phi) * cos(theta), cos(phi) * sin(theta), sin(phi)));
 }
 
 uint bufferIndex(uint2 index)
@@ -48,6 +51,15 @@ uint bufferIndex(uint2 index)
     uint y = clamp(index.y, 0, dims.y);
     
     return x + (dims.x * y);
+}
+
+float4x4 WorldMatrix()
+{
+    float3x4 existing = ObjectToWorld3x4();
+    return float4x4(existing._m00, existing._m01, existing._m02, existing._m03,
+        existing._m10, existing._m11, existing._m12, existing._m13,
+        existing._m20, existing._m21, existing._m22, existing._m23,
+        0, 0, 0, 1);
 }
 
 float3 alignWith(float3 normal, float3 direction)
@@ -64,17 +76,17 @@ float3 positionMul(float3 pos, float4x4 mat)
 float3 normalMul(float3 objectNormal, float4x4 mat)
 {
     float4 result = mul(float4(objectNormal, 0), mat);
-    return normalize(result.xyz);
+    return normalize(result.xyz / result.w);
 }
 
-float3 faceNormal(uint vertId)
+float3 faceNormal(uint vertId, float4x4 worldMatrix)
 {
-    float4x4 worldMatrix = float4x4(ObjectToWorld3x4(), float4(0, 0, 0, 1));
     float3 a = Vertices[VertexIndices[vertId]].Position;
     float3 b = Vertices[VertexIndices[vertId + 1]].Position;
     float3 c = Vertices[VertexIndices[vertId + 2]].Position;
     
-    return normalize(normalMul(normalize(cross(a - b, c - b)), worldMatrix));
+    float3 result = normalMul(normalize(cross(b - a, c - a)), worldMatrix);
+    return float3(result.xy, -result.z);
 }
 
 [shader("closesthit")]
@@ -88,46 +100,65 @@ void ClosestObjectHit(inout RayPayload payload, Attributes attrib)
     Vertex b = Vertices[VertexIndices[vertId + 1]];
     Vertex c = Vertices[VertexIndices[vertId + 2]];
     
-    float3 objectNormal = normalize(barrypolate(barycentrics, a.Normal, b.Normal, c.Normal));
     float3 rayDirection = WorldRayDirection();
-    float4x4 worldMatrix = float4x4(ObjectToWorld3x4(), float4(0, 0, 0, 1));
-    float3 baseNormal = normalMul(objectNormal, worldMatrix);
-    float3 face = faceNormal(vertId);
+    
+    float4x4 worldMatrix = WorldMatrix();
+    float3 face = faceNormal(vertId, worldMatrix);
     float3 startPosition = WorldRayOrigin() + (RayTCurrent() * rayDirection);
     
-    float3 normal = alignWith(-rayDirection, baseNormal);
+    float3 normal = alignWith(-rayDirection, face);
     
     uint2 index = DispatchRaysIndex().xy;
     
     uint seed = Settings.Seed * (index.x + 1) * (index.y + 1);
     
     Material m = Materials[MaterialIndices[PrimitiveIndex()]];
-        
+            
+    float3 incomingLight = float3(0, 0, 0);
+    float3 rayColour = float3(0, 0, 0);
+    
     if (payload.Depth < Settings.MaxRays && m.EmissionStrength < 0.1)
     {
-        payload.Depth += 1;
+        int samples = payload.Depth == 1 ? 100 : 1;
         
-        float3 offset = alignWith(normal, directionRand(seed));
-        float3 direction = normalize(normal + offset);
+        for (int i = 0; i < samples; ++i)
+        {        
+            RayPayload newPayload;
+            newPayload.IncomingLight = float3(0, 0, 0);
+            newPayload.RayColour = payload.RayColour;
+            newPayload.Depth = payload.Depth + 1;
         
-        RayDesc ray;
-        ray.Origin = startPosition;
-        ray.Direction = direction;
-        ray.TMin = 0.01;
-        ray.TMax = 10000;
+            float3 direction = normalize(normal + directionRand(seed));
+        
+            RayDesc ray;
+            ray.Origin = startPosition;
+            ray.Direction = direction;
+            ray.TMin = 0.01;
+            ray.TMax = 10000;
     
-        TraceRay(
-            SceneBVH,
-            0,
-            0xFF,
-            0,
-            0,
-            0,
-            ray,
-            payload);
+            TraceRay(
+                SceneBVH,
+                0,
+                0xFF,
+                0,
+                0,
+                0,
+                ray,
+                newPayload);
+            
+            incomingLight += newPayload.IncomingLight;
+            rayColour += newPayload.RayColour;
+        }
+        
+        rayColour = rayColour / samples;
+        incomingLight /= samples;
+    }
+    else
+    {
+        rayColour = payload.RayColour;
     }
 
     //payload.IncomingLight = float3(1, 0, 0);
-    payload.IncomingLight += m.EmissionColour * m.EmissionStrength * payload.RayColour;
+    payload.IncomingLight += incomingLight + (m.EmissionColour * m.EmissionStrength * rayColour);
     payload.RayColour *= m.Colour;
 }

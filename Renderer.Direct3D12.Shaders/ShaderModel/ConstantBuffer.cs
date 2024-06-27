@@ -11,15 +11,11 @@
 
     public class Variable
     {
-        public required HLSLType Type { get; init; }
+        public required IHlslType Type { get; init; }
         public required string Name { get; init; }
         public required int Size { get; init; }
 
-        public required int StartSampler { get; init; }
-        public required int StartTexture { get; init; }
         public required int StartOffset { get; init; }
-        public required int SamplerSize { get; init; }
-        public required int TextureSize { get; init; }
     }
 
     public enum ConstantBufferType

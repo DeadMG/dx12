@@ -18,7 +18,7 @@ namespace Data.Mesh
                 var b = points[triangle.Vertices[1]];
                 var c = points[triangle.Vertices[2]];
 
-                var weightedNormal = Plane.CreateFromVertices(a, b, c).Normal * (b - a).Length() * (c - a).Length() * (c - b).Length();
+                var weightedNormal = Vector3.Cross(b - a, c - a);
 
                 normals[triangle.Vertices[0]] += weightedNormal;
                 normals[triangle.Vertices[1]] += weightedNormal;
@@ -30,7 +30,7 @@ namespace Data.Mesh
             return points
                 .Select((v, index) => new Vertex
                 {
-                    Position = v - offset,
+                    Position = v,
                     Normal = Vector3.Normalize(normals[index])
                 })
                 .ToArray();

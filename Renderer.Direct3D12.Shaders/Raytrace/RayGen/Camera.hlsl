@@ -18,12 +18,14 @@ struct CameraMatrices
 // Camera matrices
 ConstantBuffer<CameraMatrices> Camera : register(b0);
 
-[shader("RayGeneration")]
+[shader("raygeneration")]
 void RayGen()
 {
     // Initialize the ray payload
-    HitInfo payload;
-    payload.colorAndDistance = float4(0, 0, 0, 0);
+    RayPayload payload;
+    payload.IncomingLight = float3(0, 0, 0);
+    payload.RayColour = float3(1, 1, 1);
+    payload.Depth = 1;
 
     // Get the location within the dispatched 2D grid of work items
     // (often maps to pixels, so this could represent a pixel coordinate).
@@ -54,5 +56,5 @@ void RayGen()
         ray,
         payload);
     
-    output[launchIndex] = float4(payload.colorAndDistance.rgb, 1.f);
+    output[launchIndex] = float4(payload.IncomingLight, 1.0f);
 }

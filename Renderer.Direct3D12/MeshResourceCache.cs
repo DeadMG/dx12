@@ -129,20 +129,20 @@ namespace Renderer.Direct3D12
             [FieldOffset(0)]
             public RGB Colour;
 
-            [FieldOffset(16)]
+            [FieldOffset(12)]
             public RGB EmissionColour;
 
-            [FieldOffset(28)]
+            [FieldOffset(24)]
             public float EmissionStrength;
         }
 
-        [StructLayout(LayoutKind.Explicit, Size = 32)]
+        [StructLayout(LayoutKind.Explicit, Size = 24)]
         private struct HlslVertex
         {
             [FieldOffset(0)]
             public Vector3 Position;
 
-            [FieldOffset(16)]
+            [FieldOffset(12)]
             public Vector3 Normal;
         }
     }

@@ -42,7 +42,7 @@ float3 filter(int2 pixel)
     float3 weightIntensitySum = 0;
     
     float3 originalColour = input[pixel].rgb;
-    float originalIntensity = length(originalColour);
+    float originalIntensity = saturation(originalColour);
     
     for (int xo = -Parameters.KernelWidth; xo <= Parameters.KernelWidth; ++xo)
     {
@@ -52,12 +52,11 @@ float3 filter(int2 pixel)
             {                
                 int2 kernel = pixel + int2(xo, yo);
                 
-                float3 newColour = input[kernel].rgb;
-                float newIntensity = length(newColour);
+                float newIntensity = saturation(input[kernel].rgb);
             
                 float weight = w(pixel, originalIntensity, kernel, newIntensity);
                 weightSum += weight;
-                weightIntensitySum += newColour * weight;
+                weightIntensitySum += originalColour * weight;
             }
         }
     }

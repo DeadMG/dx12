@@ -15,19 +15,21 @@ namespace Renderer.Direct3D12.Shaders.ShaderModel
 
         public CompilationResult LoadDxil(string filename)
         {
-            using (var result = compiler.Compile(File.ReadAllText(filename), Arguments(), null))
+            using (var result = compiler.Compile(File.ReadAllText(filename), Arguments(filename), utils.CreateDefaultIncludeHandler()))
             {
                 if (!result.GetStatus().Success)
                 {
                     throw new InvalidOperationException(result.GetErrors());
                 }
 
-                using (var reflection = utils.CreateReflection<Vortice.Direct3D12.Shader.ID3D12ShaderReflection>(result.GetOutput(Vortice.Dxc.DxcOutKind.Reflection)))
+                using (var output = result.GetOutput(Vortice.Dxc.DxcOutKind.Reflection))
+                using (var reflection = utils.CreateReflection<Vortice.Direct3D12.Shader.ID3D12LibraryReflection>(output))
                 {
+                    var functions = Enumerable.Range(0, reflection.Description.FunctionCount).Select(i => reflection.GetFunctionByIndex(i)).ToArray();
                     return new CompilationResult
                     {
                         DXIL = result.GetResult().AsBytes(),
-                        ConstantBuffers = reflection.ConstantBuffers.Select(Map).ToArray()
+                        ConstantBuffers = functions.SelectMany(x => Enumerable.Range(0, x.Description.ConstantBuffers).Select(cb => Map(x.GetConstantBufferByIndex(cb)))).ToArray()
                     };
                 }
             }
@@ -57,54 +59,51 @@ namespace Renderer.Direct3D12.Shaders.ShaderModel
         {
             return new Variable 
             {
-                StartSampler = variable.Description.StartSampler,
-                StartTexture = variable.Description.StartTexture,
                 StartOffset = variable.Description.StartOffset,
-                SamplerSize = variable.Description.SamplerSize,
-                TextureSize = variable.Description.TextureSize,
 
                 Size = variable.Description.Size,
                 Name = variable.Description.Name,
-                Type = Map(variable.VariableType) 
+                Type = Map(variable.VariableType, variable.Description.Size) 
             };
         }
 
-        private HLSLType Map(Vortice.Direct3D12.Shader.ID3D12ShaderReflectionType type)
+        private IHlslType Map(Vortice.Direct3D12.Shader.ID3D12ShaderReflectionType type, int size = 0)
         {
-            return new HLSLType 
+            if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.UInt) return PrimitiveHlslType.Uint;
+            if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Float) return PrimitiveHlslType.Float;
+            if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Vector && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Float)
             {
-                Rows = type.Description.RowCount,
-                Cols = type.Description.ColumnCount,
-                Elements = type.Description.ElementCount,
-                Name = type.Description.Name,
-                Offset = type.Description.Offset,
-                Category = Map(type.Description.Class),
-                
-                Members = Enumerable.Range(0, type.Description.MemberCount)
-                    .Select(x => new Member
-                    {
-                        Type = Map(type.GetMemberTypeByIndex(x)),
-                        Name = type.GetMemberTypeName(x)
-                    })
-                    .ToArray()
-            };
+                return new VectorHlslType
+                {
+                    Underlying = PrimitiveHlslType.Float,
+                    Elements = type.Description.ColumnCount
+                };
+            }
+            if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Struct)
+            {
+                return new StructHlslType
+                {
+                    Size = size,
+                    Name = type.Description.Name,
+
+                    Members = Enumerable.Range(0, type.Description.MemberCount)
+                        .Select(x => new StructMember
+                        {
+                            Type = Map(type.GetMemberTypeByIndex(x)),
+                            Name = type.GetMemberTypeName(x),
+                            Offset = type.GetMemberTypeByIndex(x).Description.Offset,
+                        })
+                        .ToArray()
+                };
+            }
+
+            throw new InvalidOperationException();
+
         }
 
-        private TypeCategory Map(Vortice.Direct3D.ShaderVariableClass type)
+        private string[] Arguments(string filename)
         {
-            if (type == Vortice.Direct3D.ShaderVariableClass.Scalar) return TypeCategory.Scalar;
-            if (type == Vortice.Direct3D.ShaderVariableClass.Vector) return TypeCategory.Vector;
-            if (type == Vortice.Direct3D.ShaderVariableClass.MatrixRows) return TypeCategory.MatrixRows;
-            if (type == Vortice.Direct3D.ShaderVariableClass.MatrixColumns) return TypeCategory.MatrixColumns;
-            if (type == Vortice.Direct3D.ShaderVariableClass.Object) return TypeCategory.Object;
-            if (type == Vortice.Direct3D.ShaderVariableClass.Struct) return TypeCategory.Struct;
-            if (type == Vortice.Direct3D.ShaderVariableClass.InterfaceClass) return TypeCategory.InterfaceClass;
-            return TypeCategory.InterfacePointer;
-        }
-
-        private string[] Arguments()
-        {
-            var args = new List<string>();
+            var args = new List<string> { filename };
 #if DEBUG
             args.Add("-Zi");
             args.Add("-Qembed_debug");
