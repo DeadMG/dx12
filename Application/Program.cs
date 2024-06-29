@@ -74,7 +74,23 @@ namespace Application
                         Position = new Vector3(-40, 0, 40),
                         Name = "Blue sun"
                     }
-                ]
+                ],
+                StarfieldNoiseCutoff = 0.95f,
+                StarfieldNoiseScale = 500f,
+                StarfieldTemperatureScale = 600f,
+                StarfieldSeed = null,
+                StarCategories = [
+                    new StarCategory { Cutoff = 0.1f, Colour = RGB.From255(153, 170, 240) },
+                    new StarCategory { Cutoff = 0.2f, Colour = RGB.From255(156, 173, 224) },
+                    new StarCategory { Cutoff = 0.3f, Colour = RGB.From255(171, 179, 209) },
+                    new StarCategory { Cutoff = 0.5f, Colour = RGB.From255(242, 241, 247) },
+                    new StarCategory { Cutoff = 0.6f, Colour = RGB.From255(230, 100, 100) },
+                    new StarCategory { Cutoff = 0.7f, Colour = RGB.From255(220, 50, 50) },
+                    new StarCategory { Cutoff = 0.8f, Colour = RGB.From255(245, 237, 231) },
+                    new StarCategory { Cutoff = 1f, Colour = RGB.From255(237, 200, 159) },
+                ],
+                Id = Guid.NewGuid(),
+                Name = "Test",
             };
             var volume = scenario.AddVolume(map);
 

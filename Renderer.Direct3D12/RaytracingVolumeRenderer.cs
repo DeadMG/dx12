@@ -18,7 +18,7 @@ namespace Renderer.Direct3D12
         private readonly StateObjectProperties stateObjectProperties;
 
         private readonly Shaders.Raytrace.Hit.Object objectShader;
-        private readonly Shaders.Raytrace.Miss.Black missShader;
+        private readonly Shaders.Raytrace.Miss.Starfield missShader;
         private readonly Shaders.Raytrace.RayGen.Camera rayGenShader;
 
         public RaytracingVolumeRenderer(MeshResourceCache meshResourceCache, Vortice.Direct3D12.ID3D12Device5 device, CommandListPool directListPool, ScreenSize screenSize, Vortice.DXGI.Format renderTargetFormat)
@@ -27,7 +27,7 @@ namespace Renderer.Direct3D12
             this.device = device;
 
             objectShader = disposeTracker.Track(new Shaders.Raytrace.Hit.Object(device, meshResourceCache, maxRays));
-            missShader = disposeTracker.Track(new Shaders.Raytrace.Miss.Black(device));
+            missShader = disposeTracker.Track(new Shaders.Raytrace.Miss.Starfield(device));
             rayGenShader = disposeTracker.Track(new Shaders.Raytrace.RayGen.Camera(device, screenSize, renderTargetFormat));
 
             emptyGlobalSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1())).Name("Empty global signature");

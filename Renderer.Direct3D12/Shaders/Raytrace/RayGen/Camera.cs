@@ -129,7 +129,7 @@ namespace Renderer.Direct3D12.Shaders.Raytrace.RayGen
                 KernelWidth = sigmaD,
                 KernelHeight = sigmaD,
                 SigmaD = 2 * (float)Math.Pow(sigmaD, 2),
-                SigmaR = 2 * (float)Math.Pow(100, 2),
+                SigmaR = 2 * (float)Math.Pow(1, 2),
                 ImageHeight = screenSize.Height,
                 ImageWidth = screenSize.Width,
             }]);
