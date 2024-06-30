@@ -73,10 +73,6 @@ void ClosestObjectHit(inout RayPayload payload, Attributes attrib)
     
     uint vertId = 3 * PrimitiveIndex();
     
-    Vertex a = Vertices[VertexIndices[vertId]];
-    Vertex b = Vertices[VertexIndices[vertId + 1]];
-    Vertex c = Vertices[VertexIndices[vertId + 2]];
-    
     float3 rayDirection = WorldRayDirection();
     
     float4x4 worldMatrix = WorldMatrix();
