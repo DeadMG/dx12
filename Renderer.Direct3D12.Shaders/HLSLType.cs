@@ -1,4 +1,4 @@
-﻿namespace Renderer.Direct3D12.Shaders.ShaderModel
+﻿namespace Renderer.Direct3D12.Shaders
 {
     public interface IHlslType
     {
@@ -15,8 +15,8 @@
 
     public class StructHlslType : IHlslType
     {
-        public required string Name { get; init; }
         public required int Size { get; init; }
+        public required string Name { get; init; }
         public required StructMember[] Members { get; init; }
     }
 
@@ -41,5 +41,10 @@
         public required int Rows { get; init; }
         public required int Columns { get; init; }
         public string Name => $"{Underlying.Name}x{Rows}x{Columns}";
+    }
+
+    public class RaytraceStructure : IHlslType
+    {
+        public string Name => $"RaytracingAccelerationStructure";
     }
 }

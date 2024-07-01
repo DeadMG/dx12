@@ -103,7 +103,7 @@ namespace Renderer.Direct3D12.Shaders.Raytrace.Hit
                     .Concat(BitConverter.GetBytes(data.MaterialIndexBuffer.GPUVirtualAddress))
                     .Concat(BitConverter.GetBytes(data.MaterialBuffer.GPUVirtualAddress))
                     .Concat(BitConverter.GetBytes(tlas.GPUVirtualAddress))
-                    .Concat(new Settings { MaxRays = maxRays, Seed = seed }.GetBytes())
+                    .Concat(new Settings { MaxRays = maxRays, Seed = seed, MaxSamples = 1 }.GetBytes())
                     .ToArray();
 
                 var hitGroup = preparation.ShaderTable.AddHit("ObjectHitGroup", parameters);
@@ -136,6 +136,9 @@ namespace Renderer.Direct3D12.Shaders.Raytrace.Hit
 
             [FieldOffset(4)]
             public uint MaxRays;
+
+            [FieldOffset(8)]
+            public uint MaxSamples;
         }
     }
 }

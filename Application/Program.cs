@@ -19,8 +19,6 @@ namespace Application
             var scenario = new Simulation.Scenario();
             var player = scenario.AddPlayer(scenario.AddForce());
 
-            var sunMesh = new IcosphereGenerator().Generate(3, new Material { EmissionStrength = 0.6f, EmissionColour = new RGB { G = 1, B = 1, R = 1 }, Colour = new RGB { B = 1, G = 0.1f, R = 0.1f } });
-
             var print = new Blueprint
             {
                 Name = "Hypercraft",
@@ -67,12 +65,13 @@ namespace Application
                 AmbientLightLevel = 0.1f,
                 Dimensions = new Vector3(100000, 100000, 100000),
                 Objects = [
-                    new PredefinedObject
+                ],
+                PrimaryLights = [
+                    new PrimaryLight
                     {
-                        Mesh = sunMesh,
                         Size = 20,
                         Position = new Vector3(-40, 0, 40),
-                        Name = "Blue sun"
+                        Material = new Material { EmissionStrength = 0.6f, EmissionColour = new RGB { G = 1, B = 1, R = 1 }, Colour = new RGB { B = 1, G = 0.1f, R = 0.1f } }
                     }
                 ],
                 StarfieldNoiseCutoff = 0.95f,

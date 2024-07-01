@@ -1,4 +1,5 @@
-#include "../Common.hlsl"
+#include "../Ray.hlsl"
+#include "../Constants.hlsl"
 
 struct StarfieldParameters
 {
@@ -100,8 +101,8 @@ float3 colour(float distribution)
 }
 
 [shader("miss")]
-void Miss(inout RayPayload payload : SV_RayPayload)
-{   
+void Miss(inout RadiancePayload payload)
+{
     // Direct camera ray
     if (payload.Depth == 1)
     {

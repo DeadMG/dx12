@@ -1,4 +1,6 @@
-#include "../Common.hlsl"
+#include "../Ray.hlsl"
+#include "../Random.hlsl"
+#include "../Material.hlsl"
 
 struct Vertex
 {
@@ -9,7 +11,14 @@ struct Vertex
 struct SettingsS
 {
     uint Seed;
-    uint MaxRays;
+    uint MaxBounces;
+    uint MaxSamples;
+};
+
+struct PrimaryLight
+{
+    float3 Position;
+    float Size;
 };
 
 ConstantBuffer<SettingsS> Settings : register(b0);
@@ -17,8 +26,8 @@ StructuredBuffer<Vertex> Vertices : register(t0);
 StructuredBuffer<uint> VertexIndices : register(t1);
 StructuredBuffer<uint> MaterialIndices : register(t2);
 StructuredBuffer<Material> Materials : register(t3);
-RaytracingAccelerationStructure SceneBVH : register(t4);
-
+StructuredBuffer<PrimaryLight> Lights : register(t4);
+RaytracingAccelerationStructure SceneBVH : register(t5);
 
 uint bufferIndex(uint2 index)
 {
@@ -67,7 +76,7 @@ float3 faceNormal(uint vertId, float4x4 worldMatrix)
 }
 
 [shader("closesthit")]
-void ClosestObjectHit(inout RayPayload payload, Attributes attrib)
+void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib)
 {
     float3 barycentrics = barycentric(attrib);
     
@@ -88,15 +97,15 @@ void ClosestObjectHit(inout RayPayload payload, Attributes attrib)
     Material m = Materials[MaterialIndices[PrimitiveIndex()]];
             
     float3 incomingLight = float3(0, 0, 0);
-    float3 rayColour = float3(0, 0, 0);
+    float3 rayColour = float3(1, 1, 1);
     
-    if (payload.Depth < Settings.MaxRays && m.EmissionStrength < 0.1)
+    if (payload.Depth < Settings.MaxBounces)
     {
-        int samples = payload.Depth == 1 ? 1 : 1;
+        int samples = payload.Depth == 1 ? Settings.MaxSamples : 1;
         
         for (int i = 0; i < samples; ++i)
         {        
-            RayPayload newPayload;
+            RadiancePayload newPayload;
             newPayload.IncomingLight = float3(0, 0, 0);
             newPayload.RayColour = payload.RayColour;
             newPayload.Depth = payload.Depth + 1;
@@ -123,14 +132,12 @@ void ClosestObjectHit(inout RayPayload payload, Attributes attrib)
             rayColour += newPayload.RayColour;
         }
         
-        rayColour = payload.RayColour + (rayColour / samples);
         incomingLight /= samples;
-    }
-    else
-    {
-        rayColour = m.Colour * payload.RayColour;
+        rayColour /= samples;
     }
 
-    payload.IncomingLight += incomingLight + (m.EmissionColour * m.EmissionStrength * rayColour);
-    payload.RayColour *= m.Colour;
+    
+    
+    payload.IncomingLight += incomingLight + (payload.RayColour * m.EmissionStrength * m.EmissionColour * rayColour);
+    payload.RayColour *= m.Colour * rayColour;
 }

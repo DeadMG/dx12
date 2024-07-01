@@ -8,7 +8,9 @@ namespace Simulation
     {
         public required float AmbientLightLevel { get; init; }
         public required Vector3 Dimensions { get; init; }
+
         public required PredefinedObject[] Objects { get; init; }
+        public required PrimaryLight[] PrimaryLights { get; init; }
 
         public required float StarfieldNoiseScale { get; init; }
         public required float StarfieldNoiseCutoff { get; init; }
@@ -19,6 +21,13 @@ namespace Simulation
 
         public required string Name { get; init; }
         public required Guid Id { get; init; }
+    }
+
+    public struct PrimaryLight
+    {
+        public required Material Material { get; init; }
+        public required float Size { get; init; }
+        public required Vector3 Position { get; init; }
     }
 
     public struct PredefinedObject

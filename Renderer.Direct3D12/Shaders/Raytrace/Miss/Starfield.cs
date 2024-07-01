@@ -1,5 +1,4 @@
-﻿using Data.Space;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using Util;
 
 namespace Renderer.Direct3D12.Shaders.Raytrace.Miss
@@ -54,7 +53,7 @@ namespace Renderer.Direct3D12.Shaders.Raytrace.Miss
                 AmbientLight = preparation.Volume.Map.AmbientLightLevel
             };
 
-            preparation.ShaderTable.AddMiss("Miss", tlas => parameters.GetBytes().Concat(BitConverter.GetBytes(mapData.LightBuffer.GPUVirtualAddress)).ToArray());
+            preparation.ShaderTable.AddMiss("Miss", tlas => parameters.GetBytes().Concat(BitConverter.GetBytes(mapData.CategoryBuffer.GPUVirtualAddress)).ToArray());
         }
 
         public void FinaliseRaytracing(RaytraceFinalisation finalise)

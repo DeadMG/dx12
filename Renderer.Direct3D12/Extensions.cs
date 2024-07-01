@@ -30,14 +30,6 @@ namespace Renderer.Direct3D12
             return result.ToArray();
         }
 
-        public static Vortice.Direct3D12.CpuDescriptorHandle CPU(this Vortice.Direct3D12.ID3D12DescriptorHeap heap, int amount)
-        {
-            using (var device = heap.GetDevice<Vortice.Direct3D12.ID3D12Device>())
-            {
-                return heap.GetCPUDescriptorHandleForHeapStart().Offset(amount, device.GetDescriptorHandleIncrementSize(heap.Description.Type));
-            }
-        }
-
         public static Vortice.Mathematics.Matrix3x4 AsAffine(this Matrix4x4 matrix)
         {
             var worldMatrix = Matrix4x4.Transpose(matrix); // HLSL uses the opposite convention

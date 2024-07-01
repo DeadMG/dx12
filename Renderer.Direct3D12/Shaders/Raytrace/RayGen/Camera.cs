@@ -9,7 +9,6 @@ namespace Renderer.Direct3D12.Shaders.Raytrace.RayGen
     internal class Camera : IShader
     {
         private readonly DisposeTracker disposeTracker = new DisposeTracker();
-        private readonly Vortice.Direct3D12.ID3D12DescriptorHeap srvUavHeap;
         private readonly Vortice.Direct3D12.ID3D12RootSignature signature;
         private readonly Vortice.Direct3D12.ID3D12Device5 device;
 
@@ -25,16 +24,8 @@ namespace Renderer.Direct3D12.Shaders.Raytrace.RayGen
             this.device = device;
             this.renderTargetFormat = renderTargetFormat;
 
-            srvUavHeap = disposeTracker.Track(device.CreateDescriptorHeap(new Vortice.Direct3D12.DescriptorHeapDescription
-            {
-                DescriptorCount = 3,
-                Flags = Vortice.Direct3D12.DescriptorHeapFlags.ShaderVisible,
-                NodeMask = 0,
-                Type = Vortice.Direct3D12.DescriptorHeapType.ConstantBufferViewShaderResourceViewUnorderedAccessView,
-            }).Name("RayGen SRV/UAV heap"));
-
             this.screenSize = screenSize;
-            this.screenResources = new RaytracingScreenResources(device, srvUavHeap, screenSize, renderTargetFormat);
+            this.screenResources = new RaytracingScreenResources(device, screenSize, renderTargetFormat);
 
             var tableParameter = new Vortice.Direct3D12.RootParameter1(
                 new Vortice.Direct3D12.RootDescriptorTable1(
@@ -42,7 +33,7 @@ namespace Renderer.Direct3D12.Shaders.Raytrace.RayGen
                     new Vortice.Direct3D12.DescriptorRange1(Vortice.Direct3D12.DescriptorRangeType.ShaderResourceView, 1, 0)),
                 Vortice.Direct3D12.ShaderVisibility.All);
 
-            var cameraParameters = new Vortice.Direct3D12.RootParameter1(new Vortice.Direct3D12.RootConstants(0, 0, Marshal.SizeOf<CameraParameters>() / 4), Vortice.Direct3D12.ShaderVisibility.All);
+            var cameraParameters = new Vortice.Direct3D12.RootParameter1(new Vortice.Direct3D12.RootConstants(0, 0, Marshal.SizeOf<Shaders.Data.CameraParameters>() / 4), Vortice.Direct3D12.ShaderVisibility.All);
             var filterParameters = new Vortice.Direct3D12.RootParameter1(new Vortice.Direct3D12.RootConstants(0, 0, Marshal.SizeOf<FilterParameters>() / 4), Vortice.Direct3D12.ShaderVisibility.All);
 
             filterSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(Vortice.Direct3D12.RootSignatureFlags.None, [tableParameter, filterParameters]))).Name("Filter signature");
@@ -144,54 +135,13 @@ namespace Renderer.Direct3D12.Shaders.Raytrace.RayGen
             commit.List.List.ResourceBarrierTransition(commit.RenderTarget, Vortice.Direct3D12.ResourceStates.CopyDest, Vortice.Direct3D12.ResourceStates.RenderTarget);
         }
 
-        [StructLayout(LayoutKind.Explicit)]
-        private struct CameraParameters
-        {
-            [FieldOffset(0)]
-            public Vector3 worldTopLeft;
-
-            [FieldOffset(16)]
-            public Vector3 worldTopRight;
-
-            [FieldOffset(32)]
-            public Vector3 worldBottomLeft;
-
-            [FieldOffset(48)]
-            public Vector3 Origin;
-        }
-
-        [StructLayout(LayoutKind.Explicit)]
-        private struct FilterParameters
-        {
-            [FieldOffset(0)]
-            public int KernelWidth;
-
-            [FieldOffset(4)]
-            public int KernelHeight;
-
-            [FieldOffset(8)]
-            public int ImageWidth;
-
-            [FieldOffset(12)]
-            public int ImageHeight;
-
-            [FieldOffset(16)]
-            public float SigmaD;
-
-            [FieldOffset(20)]
-            public float SigmaR;
-
-            [FieldOffset(24)]
-            public bool SoftShadows;
-        }
-
         internal class RaytracingScreenResources : IDisposable
         {
             private readonly DisposeTracker disposeTracker = new DisposeTracker();
             private readonly Vortice.Direct3D12.ID3D12Resource outputSrv;
             private readonly Vortice.Direct3D12.ID3D12Resource filteredSrv;
 
-            public RaytracingScreenResources(Vortice.Direct3D12.ID3D12Device5 device, Vortice.Direct3D12.ID3D12DescriptorHeap srvUavHeap, ScreenSize screenSize, Vortice.DXGI.Format renderTargetFormat)
+            public RaytracingScreenResources(Vortice.Direct3D12.ID3D12Device5 device, ScreenSize screenSize, Vortice.DXGI.Format renderTargetFormat)
             {
                 var outputDesc = new Vortice.Direct3D12.ResourceDescription
                 {
@@ -209,22 +159,6 @@ namespace Renderer.Direct3D12.Shaders.Raytrace.RayGen
                 outputSrv = disposeTracker.Track(device.CreateCommittedResource(Vortice.Direct3D12.HeapType.Default, outputDesc, Vortice.Direct3D12.ResourceStates.CopySource).Name("Raytrace Output UAV"));
                 outputDesc.Format = renderTargetFormat;
                 filteredSrv = disposeTracker.Track(device.CreateCommittedResource(Vortice.Direct3D12.HeapType.Default, outputDesc, Vortice.Direct3D12.ResourceStates.CopySource)).Name("Filter output UAV");
-
-                device.CreateUnorderedAccessView(outputSrv,
-                    null,
-                    new Vortice.Direct3D12.UnorderedAccessViewDescription
-                    {
-                        ViewDimension = Vortice.Direct3D12.UnorderedAccessViewDimension.Texture2D
-                    },
-                    srvUavHeap.GetCPUDescriptorHandleForHeapStart());
-
-                device.CreateUnorderedAccessView(filteredSrv,
-                    null,
-                    new Vortice.Direct3D12.UnorderedAccessViewDescription
-                    {
-                        ViewDimension = Vortice.Direct3D12.UnorderedAccessViewDimension.Texture2D
-                    },
-                    srvUavHeap.CPU(1));
             }
 
             public Vortice.Direct3D12.ID3D12Resource OutputSrv => outputSrv;

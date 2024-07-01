@@ -1,4 +1,4 @@
-#include "../Common.hlsl"
+#include "../Ray.hlsl"
 
 // Raytracing output texture, accessed as a UAV
 RWTexture2D<float4> output : register(u0);
@@ -41,7 +41,7 @@ void RayGen()
     float3 tracedColour = float3(0, 0, 0);
     
     // Initialize the ray payload
-    RayPayload payload;
+    RadiancePayload payload;
     payload.IncomingLight = float3(0, 0, 0);
     payload.RayColour = float3(1, 1, 1);
     payload.Depth = 1;
