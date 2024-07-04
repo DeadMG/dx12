@@ -9,6 +9,6 @@ namespace Renderer.Direct3D12.Shaders
         public required Camera Camera { get; init; }
         public required PooledCommandList List { get; init; }
         public required List<Vortice.Direct3D12.RaytracingInstanceDescription> InstanceDescriptions { get; init; }
-        public required List<Vortice.Direct3D12.ID3D12DescriptorHeap> DescriptorHeaps { get; init; }
+        public required DescriptorHeapAccumulator HeapAccumulator { get; init; }
     }
 }

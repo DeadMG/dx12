@@ -1,12 +1,7 @@
-﻿#include "../Ray.hlsl"
+﻿#include "SphereHitGroup.hlsl"
+#include "../Ray.hlsl"
 
-struct SphereProperties
-{
-    float3 WorldPosition;
-    float Size;
-};
-
-ConstantBuffer<SphereProperties> Sphere;
+ConstantBuffer<SphereHitGroupParameters> Sphere : register(b0);
 
 [shader("intersection")]
 void SphereIntersection()

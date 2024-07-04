@@ -1,6 +1,4 @@
-﻿
-using System.Formats.Tar;
-using Util;
+﻿using Util;
 
 namespace Renderer.Direct3D12
 {

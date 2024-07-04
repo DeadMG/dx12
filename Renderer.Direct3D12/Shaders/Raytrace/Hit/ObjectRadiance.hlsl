@@ -1,33 +1,23 @@
 #include "../Ray.hlsl"
 #include "../Random.hlsl"
-#include "../Material.hlsl"
+#include "../Structured.hlsl"
 
-struct Vertex
-{
-    float3 Position;
-    float3 Normal;
-};
-
-struct SettingsS
+struct ObjectRadianceParameters
 {
     uint Seed;
     uint MaxBounces;
     uint MaxSamples;
+    uint Lights;
+    
+    uint VerticesIndex;
+    uint VertexIndicesIndex;
+    uint MaterialIndicesIndex;
+    uint MaterialsIndex;
+    uint LightsIndex;
+    uint TLASIndex;
 };
 
-struct PrimaryLight
-{
-    float3 Position;
-    float Size;
-};
-
-ConstantBuffer<SettingsS> Settings : register(b0);
-StructuredBuffer<Vertex> Vertices : register(t0);
-StructuredBuffer<uint> VertexIndices : register(t1);
-StructuredBuffer<uint> MaterialIndices : register(t2);
-StructuredBuffer<Material> Materials : register(t3);
-StructuredBuffer<PrimaryLight> Lights : register(t4);
-RaytracingAccelerationStructure SceneBVH : register(t5);
+ConstantBuffer<ObjectRadianceParameters> Settings : register(b0);
 
 uint bufferIndex(uint2 index)
 {
@@ -67,6 +57,9 @@ float3 normalMul(float3 objectNormal, float4x4 mat)
 
 float3 faceNormal(uint vertId, float4x4 worldMatrix)
 {
+    StructuredBuffer<Vertex> Vertices = ResourceDescriptorHeap[Settings.VerticesIndex];
+    StructuredBuffer<uint> VertexIndices = ResourceDescriptorHeap[Settings.VertexIndicesIndex];
+    
     float3 a = Vertices[VertexIndices[vertId]].Position;
     float3 b = Vertices[VertexIndices[vertId + 1]].Position;
     float3 c = Vertices[VertexIndices[vertId + 2]].Position;
@@ -94,15 +87,20 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib)
     
     uint seed = Settings.Seed * (index.x + 1) * (index.y + 1);
     
+    StructuredBuffer<uint> MaterialIndices = ResourceDescriptorHeap[Settings.MaterialIndicesIndex];
+    StructuredBuffer<Material> Materials = ResourceDescriptorHeap[Settings.MaterialsIndex];
+    StructuredBuffer<PrimaryLight> Lights = ResourceDescriptorHeap[Settings.LightsIndex];
+    RaytracingAccelerationStructure SceneBVH = ResourceDescriptorHeap[Settings.TLASIndex];
+    
     Material m = Materials[MaterialIndices[PrimitiveIndex()]];
             
     float3 incomingLight = float3(0, 0, 0);
     float3 rayColour = float3(1, 1, 1);
     
+    int samples = payload.Depth == 1 ? Settings.MaxSamples : 1;
+    
     if (payload.Depth < Settings.MaxBounces)
     {
-        int samples = payload.Depth == 1 ? Settings.MaxSamples : 1;
-        
         for (int i = 0; i < samples; ++i)
         {        
             RadiancePayload newPayload;
@@ -122,21 +120,54 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib)
                 SceneBVH,
                 0,
                 0xFF,
+                1,
                 0,
-                0,
-                0,
+                1,
                 ray,
                 newPayload);
             
             incomingLight += newPayload.IncomingLight;
             rayColour += newPayload.RayColour;
         }
-        
-        incomingLight /= samples;
-        rayColour /= samples;
     }
-
     
+    for (int i = 0; i < Settings.Lights; i++)
+    {
+        ShadowPayload newPayload;
+        newPayload.Colour = float3(0, 0, 0);
+        
+        float3 targetPoint = Lights[i].Position + (directionRand(seed) * Lights[i].Size);
+        float3 direction = normalize(startPosition - targetPoint);
+        
+        if (dot(normal, direction) < 0.0f)
+        {
+            continue;
+        }
+        
+        RayDesc ray;
+        ray.Origin = startPosition;
+        ray.Direction = direction;
+        ray.TMin = 0.01;
+        ray.TMax = 10000;
+    
+        TraceRay(
+                SceneBVH,
+                0,
+                0xFF,
+                0,
+                0,
+                0,
+                ray,
+                newPayload);
+            
+        incomingLight += newPayload.Colour;
+        rayColour += newPayload.Colour;        
+    }
+    
+    samples += Settings.Lights;
+    
+    incomingLight /= samples;
+    rayColour /= samples;
     
     payload.IncomingLight += incomingLight + (payload.RayColour * m.EmissionStrength * m.EmissionColour * rayColour);
     payload.RayColour *= m.Colour * rayColour;

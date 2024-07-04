@@ -7,14 +7,12 @@
             var emitter = new Emitter();
             var model = new Generator();
 
-            emitter.Add(model.LoadDxil("Shaders/Raytrace/Hit/ObjectRadiance.hlsl"));
-            emitter.Add(model.LoadDxil("Shaders/Raytrace/Hit/ObjectShadow.hlsl"));
-            emitter.Add(model.LoadDxil("Shaders/Raytrace/Hit/SphereIntersection.hlsl"));
-            emitter.Add(model.LoadDxil("Shaders/Raytrace/Hit/SphereRadiance.hlsl"));
-            emitter.Add(model.LoadDxil("Shaders/Raytrace/Hit/SphereShadow.hlsl"));
-            emitter.Add(model.LoadDxil("Shaders/Raytrace/Miss/Black.hlsl"));
-            emitter.Add(model.LoadDxil("Shaders/Raytrace/Miss/Starfield.hlsl"));
-            emitter.Add(model.LoadDxil("Shaders/Raytrace/RayGen/Camera.hlsl"));
+            var files = new DirectoryInfo("Shaders").GetFiles("*.hlsl", SearchOption.AllDirectories);
+
+            foreach (var inputFile in files)
+            {
+                emitter.Add(model.TryLoad(Path.GetRelativePath(Directory.GetCurrentDirectory(), inputFile.FullName)));
+            }
 
             foreach (var file in emitter.Emit())
             {

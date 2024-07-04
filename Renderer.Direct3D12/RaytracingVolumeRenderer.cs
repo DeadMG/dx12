@@ -1,5 +1,4 @@
 ﻿using Data.Space;
-using Renderer.Direct3D12.Shaders;
 using Simulation;
 using Util;
 
@@ -12,23 +11,48 @@ namespace Renderer.Direct3D12
 
         private readonly CommandListPool directListPool;
         private readonly Vortice.Direct3D12.ID3D12Device5 device;
+        private readonly DescriptorHeapAccumulator heapAccumulator;
 
         private readonly Vortice.Direct3D12.ID3D12RootSignature emptyGlobalSignature;
         private readonly Vortice.Direct3D12.ID3D12StateObject state;
         private readonly StateObjectProperties stateObjectProperties;
 
-        private readonly Shaders.Raytrace.Hit.Object objectShader;
-        private readonly Shaders.Raytrace.Miss.Starfield missShader;
-        private readonly Shaders.Raytrace.RayGen.Camera rayGenShader;
 
-        public RaytracingVolumeRenderer(MeshResourceCache meshResourceCache, Vortice.Direct3D12.ID3D12Device5 device, CommandListPool directListPool, ScreenSize screenSize, Vortice.DXGI.Format renderTargetFormat)
+        private readonly Shaders.Raytrace.Hit.ObjectRadiance objectRadiance;
+        private readonly Shaders.Raytrace.Hit.ObjectShadow objectShadow;
+        private readonly Shaders.Raytrace.Hit.SphereIntersection sphereIntersection;
+        private readonly Shaders.Raytrace.Hit.SphereRadiance sphereRadiance;
+        private readonly Shaders.Raytrace.Hit.SphereShadow sphereShadow;
+        private readonly Shaders.Raytrace.RayGen.Camera cameraShader;
+        private readonly Shaders.Raytrace.RayGen.Filter filterShader;
+        private readonly Shaders.Raytrace.Miss.RadianceMiss radianceMiss;
+        private readonly Shaders.Raytrace.Miss.ShadowMiss shadowMiss;
+
+        private readonly Shaders.MissShaders missShaderStep;
+        private readonly Shaders.CameraRayGen rayGenStep;
+
+        private readonly Shaders.ObjectStep objectStep;
+
+        public RaytracingVolumeRenderer(DescriptorHeapAccumulator heapAccumulator, MeshResourceCache meshResourceCache, MapResourceCache mapResourceCache, Vortice.Direct3D12.ID3D12Device5 device, CommandListPool directListPool, ScreenSize screenSize, Vortice.DXGI.Format renderTargetFormat)
         {
             this.directListPool = directListPool;
             this.device = device;
+            this.heapAccumulator = heapAccumulator;
 
-            objectShader = disposeTracker.Track(new Shaders.Raytrace.Hit.Object(device, meshResourceCache, maxRays));
-            missShader = disposeTracker.Track(new Shaders.Raytrace.Miss.Starfield(device));
-            rayGenShader = disposeTracker.Track(new Shaders.Raytrace.RayGen.Camera(device, screenSize, renderTargetFormat));
+            objectRadiance = disposeTracker.Track(new Shaders.Raytrace.Hit.ObjectRadiance(device));
+            objectShadow = disposeTracker.Track(new Shaders.Raytrace.Hit.ObjectShadow(device));
+            sphereIntersection = disposeTracker.Track(new Shaders.Raytrace.Hit.SphereIntersection(device));
+            sphereRadiance = disposeTracker.Track(new Shaders.Raytrace.Hit.SphereRadiance(device));
+            sphereShadow = disposeTracker.Track(new Shaders.Raytrace.Hit.SphereShadow(device));
+            cameraShader = disposeTracker.Track(new Shaders.Raytrace.RayGen.Camera(device));
+            radianceMiss = disposeTracker.Track(new Shaders.Raytrace.Miss.RadianceMiss(device));
+            shadowMiss = disposeTracker.Track(new Shaders.Raytrace.Miss.ShadowMiss(device));
+            filterShader = disposeTracker.Track(new Shaders.Raytrace.RayGen.Filter(device));
+
+            missShaderStep = disposeTracker.Track(new Shaders.MissShaders(mapResourceCache, radianceMiss, shadowMiss));
+            rayGenStep = disposeTracker.Track(new Shaders.CameraRayGen(device, screenSize, renderTargetFormat, filterShader, cameraShader));
+
+            objectStep = disposeTracker.Track(new Shaders.ObjectStep(meshResourceCache, mapResourceCache, maxRays, objectRadiance, objectShadow, sphereRadiance, sphereShadow, sphereIntersection));
 
             emptyGlobalSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1())).Name("Empty global signature");
 
@@ -36,18 +60,22 @@ namespace Renderer.Direct3D12
 
             Vortice.Direct3D12.StateSubObject[] fixedSubobjects = [
                 shaderConfigSubobject,
-                new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.SubObjectToExportsAssociation(shaderConfigSubobject, Shaders.SelectMany(s => s.Exports).ToArray())),
+                new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.SubObjectToExportsAssociation(shaderConfigSubobject, RaytracingShaders.Select(s => s.Export).ToArray())),
                 new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.RaytracingPipelineConfig(maxRays))
             ];
 
             state = disposeTracker.Track(device.CreateStateObject(new Vortice.Direct3D12.StateObjectDescription(Vortice.Direct3D12.StateObjectType.RaytracingPipeline,
-                Shaders.SelectMany(s => s.CreateStateObjects()).Concat(fixedSubobjects).ToArray()))
+                RaytracingShaders.SelectMany(s => s.CreateStateObjects())
+                    .Concat(fixedSubobjects)
+                    .Concat(Steps.SelectMany(s => s.CreateStateObjects()))
+                    .ToArray()))
                 .Name("Raytrace state object"));
 
             stateObjectProperties = disposeTracker.Track(new StateObjectProperties(state));
         }
 
-        private IShader[] Shaders => [objectShader, missShader, rayGenShader];
+        private Shaders.ILibrary[] RaytracingShaders => [objectRadiance, objectShadow, sphereIntersection, sphereRadiance, sphereShadow, radianceMiss, shadowMiss, cameraShader];
+        private Shaders.IRaytracingPipelineStep[] Steps => [missShaderStep, rayGenStep, objectStep];
 
         public void Render(RendererParameters rp, Volume volume, Camera camera)
         {
@@ -55,47 +83,43 @@ namespace Renderer.Direct3D12
 
             var entry = directListPool.GetCommandList();
 
-            var preparation = new RaytracePreparation 
+            var preparation = new Shaders.RaytracePreparation 
             { 
                 Camera = camera, 
                 Volume = volume, 
-                DescriptorHeaps = new List<Vortice.Direct3D12.ID3D12DescriptorHeap>(),
                 InstanceDescriptions = new List<Vortice.Direct3D12.RaytracingInstanceDescription>(), 
                 List = entry,
                 ShaderTable = entry.DisposeAfterExecution(new ShaderBindingTable(stateObjectProperties)),
+                HeapAccumulator = heapAccumulator
             };
 
-            foreach (var shader in Shaders)
+            foreach (var step in Steps)
             {
-                shader.PrepareRaytracing(preparation);
+                step.PrepareRaytracing(preparation);
             }
 
-            var finalise = new RaytraceFinalisation { TLAS = CreateTLAS(preparation) };
-            foreach (var shader in Shaders)
-            {
-                shader.FinaliseRaytracing(finalise);
-            }
+            var tlas = CreateTLAS(preparation);
 
             entry.List.SetComputeRootSignature(emptyGlobalSignature);
             entry.List.SetPipelineState1(state);
-            entry.List.SetDescriptorHeaps(preparation.DescriptorHeaps.ToArray());
+            entry.List.SetDescriptorHeaps(heapAccumulator.GetHeaps());
 
-            var dispatchDesc = preparation.ShaderTable.Create(device, finalise.TLAS, entry);
+            var dispatchDesc = preparation.ShaderTable.Create(device, tlas, entry);
             dispatchDesc.Depth = 1;
             dispatchDesc.Width = camera.ScreenSize.Width;
             dispatchDesc.Height = camera.ScreenSize.Height;
             entry.List.DispatchRays(dispatchDesc);
 
-            var commit = new RaytraceCommit { RenderTarget = rp.RenderTarget, List = entry };
-            foreach (var shader in Shaders)
+            var commit = new Shaders.RaytraceCommit { RenderTarget = rp.RenderTarget, List = entry };
+            foreach (var step in Steps)
             {
-                shader.CommitRaytracing(commit);
+                step.CommitRaytracing(commit);
             }
 
             entry.Execute();
         }
 
-        private Vortice.Direct3D12.ID3D12Resource CreateTLAS(RaytracePreparation preparation)
+        private Vortice.Direct3D12.ID3D12Resource CreateTLAS(Shaders.RaytracePreparation preparation)
         {
             var instances = preparation.List.DisposeAfterExecution(preparation.List.CreateUploadBuffer(preparation.InstanceDescriptions)).Name("TLAS prep buffer");
 

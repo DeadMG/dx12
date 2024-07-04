@@ -1,0 +1,8 @@
+<Project>
+    <Target Name="AgilitySDKPatch" AfterTargets="Build">
+        <PropertyGroup>
+            <ExecutablePath>bin\$(Configuration)\net8.0-windows\Application.exe</ExecutablePath>
+        </PropertyGroup>
+        <Exec Command="..\AgilitySDK\Patcher\D3D12SDKVersionPatcher.exe $(ExecutablePath) 614 AgilitySDK $(ExecutablePath)" />
+    </Target>
+</Project>

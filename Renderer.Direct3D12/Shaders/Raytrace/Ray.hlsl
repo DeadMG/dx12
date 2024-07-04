@@ -1,3 +1,5 @@
+#pragma once
+
 struct RadiancePayload
 {
     float3 IncomingLight;

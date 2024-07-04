@@ -57,8 +57,8 @@ namespace Renderer.Direct3D12.Shaders.Data {{
         private string StructureMember(StructMember member)
         {
             return $@"
-[FieldOffset({member.Offset})]
-        public {CsharpName(member.Type, member.Name)} {member.Name};";
+        [FieldOffset({member.Offset})]
+        public required {CsharpName(member.Type, member.Name)} {member.Name};";
         }
 
         private string CsharpName(IHlslType type, string? memberName)

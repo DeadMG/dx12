@@ -14,8 +14,8 @@
     <None Remove="Shaders\Raytrace\Hit\SphereIntersection.hlsl" />
     <None Remove="Shaders\Raytrace\Hit\SphereRadiance.hlsl" />
     <None Remove="Shaders\Raytrace\Hit\SphereShadow.hlsl" />
-    <None Remove="Shaders\Raytrace\Miss\Black.hlsl" />
-    <None Remove="Shaders\Raytrace\Miss\Starfield.hlsl" />
+    <None Remove="Shaders\Raytrace\Miss\RadianceMiss.hlsl" />
+    <None Remove="Shaders\Raytrace\Miss\ShadowMiss.hlsl" />
     <None Remove="Shaders\Raytrace\Random.hlsl" />
     <None Remove="Shaders\Raytrace\Ray.hlsl" />
     <None Remove="Shaders\Raytrace\RayGen\Camera.hlsl" />
@@ -41,10 +41,10 @@
     <Content Include="Shaders\Raytrace\Hit\SphereShadow.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Shaders\Raytrace\Miss\Black.hlsl">
+    <Content Include="Shaders\Raytrace\Miss\ShadowMiss.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Shaders\Raytrace\Miss\Starfield.hlsl">
+    <Content Include="Shaders\Raytrace\Miss\RadianceMiss.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Shaders\Raytrace\Random.hlsl">

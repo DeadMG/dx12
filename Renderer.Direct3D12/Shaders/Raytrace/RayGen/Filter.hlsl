@@ -1,10 +1,10 @@
 struct FilterParameters
 {
-    int KernelWidth;
-    int KernelHeight;
+    uint KernelWidth;
+    uint KernelHeight;
     
-    int ImageWidth;
-    int ImageHeight;
+    uint ImageWidth;
+    uint ImageHeight;
     
     float SigmaD;
     float SigmaR;
@@ -66,7 +66,7 @@ float3 filter(int2 pixel)
 }
 
 [numthreads(32, 32, 1)]
-void bilteralFilter(int2 id: SV_DispatchThreadID)
+void compute(int2 id: SV_DispatchThreadID)
 {
     if (id.x >= Parameters.ImageWidth) return;
     if (id.y >= Parameters.ImageHeight) return;

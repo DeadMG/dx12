@@ -1,9 +1,10 @@
-﻿using SharpGen.Runtime;
+﻿using System;
 
 namespace Renderer.Direct3D12.Shaders
 {
     internal class Generator
     {
+        private const string model = "6_6";
         private readonly Vortice.Dxc.IDxcCompiler3 compiler;
         private readonly Vortice.Dxc.IDxcUtils utils;
 
@@ -13,9 +14,67 @@ namespace Renderer.Direct3D12.Shaders
             utils = Vortice.Dxc.Dxc.CreateDxcUtils();
         }
 
-        public CompilationResult LoadDxil(string filename)
+        public CompilationResult TryLoad(string filename)
         {
-            using (var result = compiler.Compile(File.ReadAllText(filename), Arguments(filename), utils.CreateDefaultIncludeHandler()))
+            var text = File.ReadAllText(filename);
+            if (text.Contains("[numthreads("))
+            {
+                return LoadComputeShader(filename, text);
+            }
+
+            if (text.Contains("[shader(\""))
+            {
+                return LoadDxil(filename, text);
+            }
+
+            if (filename.EndsWith("Structured.hlsl"))
+            {
+                // With bindless we can no longer reflect directly on structured buffers. Instead, we will horribly fake it.
+                var structNames = text.Split("\r\n", StringSplitOptions.TrimEntries).Where(s => s.StartsWith("struct ")).Select(s => s.Replace("struct ", "")).ToArray();
+                var fakeText = $@"#include ""Structured.hlsl""
+
+{string.Join("\r\n", structNames.Select((s, index) => $"StructuredBuffer<{s}> {s}buffer : register(t{index});"))}
+
+[shader(""closesthit"")]
+void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
+{string.Join("\r\n", structNames.Select(s => $"fakeUse(payload, {s}buffer[0]);"))}
+}}
+";
+
+                var result = LoadDxil(Path.Combine(Path.GetDirectoryName(filename), "fake.hlsl"), fakeText);
+                return result with { Type = EmitType.None };
+            }
+
+            return null;
+        }
+
+        private CompilationResult LoadComputeShader(string filename, string text)
+        {
+            using (var result = compiler.Compile(text, Arguments("cs", filename, "compute"), utils.CreateDefaultIncludeHandler()))
+            {
+                if (!result.GetStatus().Success)
+                {
+                    throw new InvalidOperationException(result.GetErrors());
+                }
+
+                using (var output = result.GetOutput(Vortice.Dxc.DxcOutKind.Reflection))
+                using (var reflection = utils.CreateReflection<Vortice.Direct3D12.Shader.ID3D12ShaderReflection>(output))
+                {
+                    return new CompilationResult
+                    {
+                        DXIL = result.GetResult().AsBytes(),
+                        Inputs = Enumerable.Range(0, reflection.Description.BoundResources).Select(bi => Map(new ShaderReflectionContext(reflection), reflection.GetResourceBindingDescription(bi))).ToArray(),
+                        Export = "compute",
+                        Path = filename,
+                        Type = EmitType.Compute,
+                    };
+                }
+            }
+        }
+
+        private CompilationResult LoadDxil(string filename, string text)
+        {
+            using (var result = compiler.Compile(text, Arguments("lib", filename, null), utils.CreateDefaultIncludeHandler()))
             {
                 if (!result.GetStatus().Success)
                 {
@@ -25,26 +84,28 @@ namespace Renderer.Direct3D12.Shaders
                 using (var output = result.GetOutput(Vortice.Dxc.DxcOutKind.Reflection))
                 using (var reflection = utils.CreateReflection<Vortice.Direct3D12.Shader.ID3D12LibraryReflection>(output))
                 {
-                    if (reflection.Description.FunctionCount != 1) throw new InvalidOperationException();
+                    var functions = Enumerable.Range(0, reflection.Description.FunctionCount).Select(x => reflection.GetFunctionByIndex(x)).Where(s => !s.Description.Name.StartsWith("_GLOBAL")).ToArray();
+                    if (functions.Length != 1) throw new InvalidOperationException($"Found {reflection.Description.FunctionCount} entry points in {filename}: {string.Join(", ", functions.Select(s => s.Description.Name))}");
 
-                    var function = reflection.GetFunctionByIndex(0);
+                    var function = functions[0];
 
                     return new CompilationResult
                     {
                         DXIL = result.GetResult().AsBytes(),
-                        Inputs = Enumerable.Range(0, function.Description.BoundResources).Select(bi => Map(function, function.GetResourceBindingDescription(bi))).ToArray(),
+                        Inputs = Enumerable.Range(0, reflection.Description.FunctionCount).Select(f => reflection.GetFunctionByIndex(f)).SelectMany(function => Enumerable.Range(0, function.Description.BoundResources).Select(bi => Map(new FunctionReflectionContext(function), function.GetResourceBindingDescription(bi)))).ToArray(),
                         Export = function.Description.Name,
                         Path = filename,
+                        Type = EmitType.DXR,
                     };
                 }
             }
         }
 
-        private BoundInput Map(Vortice.Direct3D12.Shader.ID3D12FunctionReflection func, Vortice.Direct3D12.Shader.InputBindingDescription desc)
+        private BoundInput Map(IReflectionContext context, Vortice.Direct3D12.Shader.InputBindingDescription desc)
         {
             if (desc.Type == Vortice.Direct3D.ShaderInputType.ConstantBuffer)
             {
-                var variable = func.GetVariableByName(desc.Name);
+                var variable = context.GetVariableByName(desc.Name);
                 return new BoundInput
                 {
                     ItemSize = variable.Description.Size,
@@ -58,7 +119,7 @@ namespace Renderer.Direct3D12.Shaders
 
             if (desc.Type == Vortice.Direct3D.ShaderInputType.Structured)
             {
-                var buffer = func.GetConstantBufferByName(desc.Name);
+                var buffer = context.GetConstantBufferByName(desc.Name);
                 var variable = buffer.GetVariableByIndex(0);
                 return new BoundInput
                 {
@@ -97,6 +158,19 @@ namespace Renderer.Direct3D12.Shaders
                 };
             }
 
+            if (desc.Type == Vortice.Direct3D.ShaderInputType.Texture)
+            {
+                return new BoundInput
+                {
+                    ItemSize = 0,
+                    RegisterSpace = desc.Space,
+                    Name = desc.Name,
+                    RegisterValue = desc.BindPoint,
+                    BindType = BindType.Texture,
+                    Type = null
+                };
+            }
+
             throw new InvalidOperationException();
         }
 
@@ -130,23 +204,65 @@ namespace Renderer.Direct3D12.Shaders
                 };
             }
 
-            throw new InvalidOperationException();
+            throw new InvalidOperationException($"Could not load type {type.Description.Name}");
 
         }
 
-        private string[] Arguments(string filename)
+        private string[] Arguments(string type, string filename, string entryPoint)
         {
             var args = new List<string> { filename };
 #if DEBUG
             args.Add("-Zi");
             args.Add("-Qembed_debug");
+            args.Add("-Od");
 #endif
-            args.Add($"-T lib_6_3");
+
+            args.Add($"-T {type}_{model}");
+            if (entryPoint != null)
+            {
+                args.Add($"-E {entryPoint}");
+            }
 
             return args.ToArray();
         }
 
         private readonly int CP_UTF8 = 65001;
+
+        private interface IReflectionContext
+        {
+            Vortice.Direct3D12.Shader.ID3D12ShaderReflectionVariable GetVariableByName(string name);
+            Vortice.Direct3D12.Shader.ID3D12ShaderReflectionConstantBuffer GetConstantBufferByName(string name);
+        }
+
+        private class ShaderReflectionContext : IReflectionContext
+        {
+            private readonly Vortice.Direct3D12.Shader.ID3D12ShaderReflection shader;
+
+            public ShaderReflectionContext(Vortice.Direct3D12.Shader.ID3D12ShaderReflection shader)
+            {
+                this.shader = shader;
+            }
+
+            public Vortice.Direct3D12.Shader.ID3D12ShaderReflectionConstantBuffer GetConstantBufferByName(string name)
+                => shader.GetConstantBufferByName(name);
+            public Vortice.Direct3D12.Shader.ID3D12ShaderReflectionVariable GetVariableByName(string name)
+                => shader.GetVariableByName(name);
+        }
+
+        private class FunctionReflectionContext : IReflectionContext
+        {
+            private readonly Vortice.Direct3D12.Shader.ID3D12FunctionReflection func;
+
+            public FunctionReflectionContext(Vortice.Direct3D12.Shader.ID3D12FunctionReflection func)
+            {
+                this.func = func;
+            }
+
+            public Vortice.Direct3D12.Shader.ID3D12ShaderReflectionConstantBuffer GetConstantBufferByName(string name)
+                => func.GetConstantBufferByName(name);
+            public Vortice.Direct3D12.Shader.ID3D12ShaderReflectionVariable GetVariableByName(string name)
+                => func.GetVariableByName(name);
+        }
     }
 
     public class BoundInput
@@ -165,13 +281,22 @@ namespace Renderer.Direct3D12.Shaders
         ConstantBuffer,
         RtAccelerationStructure,
         RWUnorderedAccess,
+        Texture,
     }
 
-    public class CompilationResult
+    public record class CompilationResult
     {
         public required BoundInput[] Inputs { get; init; }
         public required byte[] DXIL { get; init; }
         public required string Export { get; init; }
         public required string Path { get; init; }
+        public required EmitType Type { get; init; }
+    }
+
+    public enum EmitType
+    {
+        DXR,
+        Compute,
+        None,
     }
 }

@@ -22,10 +22,10 @@ namespace Renderer.Direct3D12
         {
             if (cache.ContainsKey(mesh.Id)) return cache[mesh.Id];
 
-            var vertices = mesh.Vertices.Select(x => new HlslVertex { Normal = x.Normal, Position = x.Position }).ToArray();
+            var vertices = mesh.Vertices.Select(x => new Shaders.Data.Vertex { Normal = x.Normal, Position = x.Position }).ToArray();
             var vertexIndices = mesh.Triangles.SelectMany(x => x.Vertices).ToArray();
             var materialIndices = mesh.Triangles.Select(x => (uint)x.MaterialIndex).ToArray();
-            var materials = mesh.Materials.Select(m => new HlslMaterial { Colour = m.Colour, EmissionColour = m.EmissionColour, EmissionStrength = m.EmissionStrength }).ToArray();
+            var materials = mesh.Materials.Select(m => new Shaders.Data.Material { Colour = m.Colour, EmissionColour = m.EmissionColour, EmissionStrength = m.EmissionStrength }).ToArray();
 
             var vertexBuffer = disposeTracker.Track(device.CreateStaticBuffer(vertices.SizeOf()).Name($"{name} vertex buffer"));
             var indexBuffer = disposeTracker.Track(device.CreateStaticBuffer(vertexIndices.SizeOf()).Name($"{name} vertex index buffer"));
@@ -84,7 +84,34 @@ namespace Renderer.Direct3D12
                 SourceAccelerationStructureData = 0,
             });
 
-            var data = new MeshData { BLAS = result, VertexIndexBuffer = indexBuffer, VertexBuffer = vertexBuffer, MaterialBuffer = materialBuffer, MaterialIndexBuffer = materialIndexBuffer };
+            var data = new MeshData
+            { 
+                BLAS = result, 
+                VertexIndexBuffer = indexBuffer,
+                VertexIndexSRV = new Vortice.Direct3D12.BufferShaderResourceView
+                {
+                    StructureByteStride = Marshal.SizeOf<uint>(),
+                    NumElements = vertexIndices.Length,
+                },
+                VertexBuffer = vertexBuffer,
+                VertexSRV  = new Vortice.Direct3D12.BufferShaderResourceView
+                {
+                    StructureByteStride = Marshal.SizeOf<Shaders.Data.Vertex>(),
+                    NumElements = vertices.Length,
+                },
+                MaterialBuffer = materialBuffer,
+                MaterialSRV = new Vortice.Direct3D12.BufferShaderResourceView 
+                {
+                    StructureByteStride = Marshal.SizeOf<Shaders.Data.Material>(),
+                    NumElements = materials.Length,
+                },
+                MaterialIndexBuffer = materialIndexBuffer,
+                MaterialIndexSRV = new Vortice.Direct3D12.BufferShaderResourceView
+                {
+                    StructureByteStride = Marshal.SizeOf<uint>(),
+                    NumElements = materialIndices.Length,
+                }
+            };
 
             cache[mesh.Id] = data;
 
@@ -116,33 +143,14 @@ namespace Renderer.Direct3D12
         public class MeshData
         {
             public required Vortice.Direct3D12.ID3D12Resource VertexBuffer { get; init; }
+            public required Vortice.Direct3D12.BufferShaderResourceView VertexSRV { get; init; }
             public required Vortice.Direct3D12.ID3D12Resource VertexIndexBuffer { get; init; }
+            public required Vortice.Direct3D12.BufferShaderResourceView VertexIndexSRV { get; init; }
             public required Vortice.Direct3D12.ID3D12Resource MaterialIndexBuffer { get; init; }
+            public required Vortice.Direct3D12.BufferShaderResourceView MaterialIndexSRV { get; init; }
             public required Vortice.Direct3D12.ID3D12Resource MaterialBuffer { get; init; }
+            public required Vortice.Direct3D12.BufferShaderResourceView MaterialSRV { get; init; }
             public required Vortice.Direct3D12.ID3D12Resource BLAS { get; init; }
-        }
-
-        [StructLayout(LayoutKind.Explicit)]
-        private struct HlslMaterial
-        {
-            [FieldOffset(0)]
-            public RGB Colour;
-
-            [FieldOffset(12)]
-            public RGB EmissionColour;
-
-            [FieldOffset(24)]
-            public float EmissionStrength;
-        }
-
-        [StructLayout(LayoutKind.Explicit, Size = 24)]
-        private struct HlslVertex
-        {
-            [FieldOffset(0)]
-            public Vector3 Position;
-
-            [FieldOffset(12)]
-            public Vector3 Normal;
         }
     }
 }

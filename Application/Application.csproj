@@ -8,6 +8,40 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="AgilitySDK\D3D12Core.dll" />
+    <None Remove="AgilitySDK\D3D12Core.pdb" />
+    <None Remove="AgilitySDK\d3d12SDKLayers.dll" />
+    <None Remove="AgilitySDK\d3d12SDKLayers.pdb" />
+    <None Remove="AgilitySDK\d3dconfig.exe" />
+    <None Remove="AgilitySDK\d3dconfig.pdb" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="AgilitySDK\D3D12Core.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="AgilitySDK\D3D12Core.pdb">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="AgilitySDK\d3d12SDKLayers.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="AgilitySDK\d3d12SDKLayers.pdb">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="AgilitySDK\d3dconfig.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="AgilitySDK\d3dconfig.pdb">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Application.D3D12.proj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Data.Mesh\Data.Mesh.csproj" />
     <ProjectReference Include="..\Simulation.Physics\Simulation.Physics.csproj" />
     <ProjectReference Include="..\Platform.Contracts\Platform.Contracts.csproj" />
@@ -15,5 +49,6 @@
     <ProjectReference Include="..\Simulation.Scenario\Simulation.Scenario.csproj" />
     <ProjectReference Include="..\UI.Scenario\UI.Scenario.csproj" />
   </ItemGroup>
-
+ 
+  <Import Project="Application.D3D12.proj" />
 </Project>

@@ -25,18 +25,28 @@ namespace Renderer.Direct3D12
         {
             if (cache.ContainsKey(map.Id)) return cache[map.Id];
 
-            var categories = map.StarCategories.OrderBy(x => x.Cutoff).Select(s => new HlslStarCategory { Colour = s.Colour, Cutoff = s.Cutoff }).ToArray();
+            var categories = map.StarCategories.OrderBy(x => x.Cutoff).Select(s => new Shaders.Data.StarCategory { Colour = s.Colour, Cutoff = s.Cutoff }).ToArray();
             var categoryBuffer = disposeTracker.Track(device.CreateStaticBuffer(categories.SizeOf())).Name($"{map.Name} category buffer");
             list.UploadData(categoryBuffer, categories);
 
-            var lights = map.PrimaryLights.Select(x => new HlslPrimaryLight { Position = x.Position, Size = x.Size }).ToArray();
+            var lights = map.PrimaryLights.Select(x => new Shaders.Data.PrimaryLight { Position = x.Position, Size = x.Size }).ToArray();
             var lightBuffer = disposeTracker.Track(device.CreateStaticBuffer(categories.SizeOf())).Name($"{map.Name} light buffer");
             list.UploadData(lightBuffer, lights);
 
             var mapData = new MapData
             {
                 CategoryBuffer = categoryBuffer,
+                CategorySRV = new Vortice.Direct3D12.BufferShaderResourceView
+                {
+                    NumElements = lights.Length,
+                    StructureByteStride = Marshal.SizeOf<Shaders.Data.StarCategory>(),
+                },
                 LightBuffer = lightBuffer,
+                LightSRV = new Vortice.Direct3D12.BufferShaderResourceView
+                {
+                    NumElements = categories.Length,
+                    StructureByteStride = Marshal.SizeOf<Shaders.Data.PrimaryLight>()
+                },
                 Seed = map.StarfieldSeed ?? rng.GetRandom<uint>()
             };
 
@@ -49,32 +59,14 @@ namespace Renderer.Direct3D12
         {
             disposeTracker.Dispose();
         }
-
-        [StructLayout(LayoutKind.Explicit)]
-        struct HlslStarCategory
-        {
-            [FieldOffset(0)]
-            public RGB Colour;
-
-            [FieldOffset(12)]
-            public float Cutoff;
-        }
-
-        [StructLayout(LayoutKind.Explicit)]
-        struct HlslPrimaryLight
-        {
-            [FieldOffset(0)]
-            public Vector3 Position;
-
-            [FieldOffset(12)]
-            public float Size;
-        }
     }
 
     public class MapData
     {
         public required uint Seed { get; init; }
         public required Vortice.Direct3D12.ID3D12Resource CategoryBuffer { get; init; }
+        public required Vortice.Direct3D12.BufferShaderResourceView CategorySRV { get; init; }
         public required Vortice.Direct3D12.ID3D12Resource LightBuffer { get; init; }
+        public required Vortice.Direct3D12.BufferShaderResourceView LightSRV { get; init; }
     }
 }

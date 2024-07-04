@@ -12,6 +12,7 @@ namespace Application
     {
         static async Task Main(string[] args)
         {
+            var directory = Directory.GetCurrentDirectory();
             var platform = new PlatformSelector().GetPlatform();
 
             await platform.OneTimeInitialisation();

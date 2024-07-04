@@ -20,6 +20,7 @@ namespace Renderer.Direct3D12
         private readonly Vortice.Direct2D1.ID2D1DeviceContext deviceContext;
         private readonly Vortice.Direct2D1.ID2D1Factory1 factory1;
         private readonly MeshResourceCache bpResourceCache;
+        private readonly MapResourceCache mapResourceCache;
         private readonly RaytracingVolumeRenderer raytraceVolumeRenderer;
         private readonly Direct2DDraw draw;
 
@@ -29,17 +30,17 @@ namespace Renderer.Direct3D12
         {
             LoadLibraryW("C:\\Program Files\\Microsoft PIX\\2405.15.002-OneBranch_release\\WinPixGpuCapturer.dll");
             LoadLibraryW("C:\\Program Files\\Microsoft PIX\\2405.15.002-OneBranch_release\\WinPixTimingCapturer.dll");
-
-            using (var debug = Vortice.Direct3D12.D3D12.D3D12GetDebugInterface<Vortice.Direct3D12.Debug.ID3D12Debug>())
-            {
-                debug?.EnableDebugLayer();
-            }
             
             using (var queue = Vortice.DXGI.DXGI.DXGIGetDebugInterface1<Vortice.DXGI.Debug.IDXGIInfoQueue>())
             {
                 queue?.SetBreakOnSeverity(Vortice.DXGI.DXGI.DebugAll, Vortice.DXGI.Debug.InfoQueueMessageSeverity.Corruption, true);
                 queue?.SetBreakOnSeverity(Vortice.DXGI.DXGI.DebugAll, Vortice.DXGI.Debug.InfoQueueMessageSeverity.Error, true);
                 queue?.SetBreakOnSeverity(Vortice.DXGI.DXGI.DebugAll, Vortice.DXGI.Debug.InfoQueueMessageSeverity.Warning, true);
+            }
+
+            using (var debug = Vortice.Direct3D12.D3D12.D3D12GetDebugInterface<Vortice.Direct3D12.Debug.ID3D12Debug>())
+            {
+                debug?.EnableDebugLayer();
             }
 
             using (var factory = Vortice.DXGI.DXGI.CreateDXGIFactory2<Vortice.DXGI.IDXGIFactory5>(Debug))
@@ -68,7 +69,7 @@ namespace Renderer.Direct3D12
                         },
                         DenyList = new Vortice.Direct3D12.Debug.InfoQueueFilterDescription
                         {
-                            Ids = new [] { Vortice.Direct3D12.Debug.MessageId.ClearRenderTargetViewMismatchingClearValue },
+                            Ids = new [] { Vortice.Direct3D12.Debug.MessageId.ClearRenderTargetViewMismatchingClearValue, Vortice.Direct3D12.Debug.MessageId.CreateResourceStateIgnored },
                             Severities = new [] { Vortice.Direct3D12.Debug.MessageSeverity.Info }
                         }
                     });
@@ -103,6 +104,8 @@ namespace Renderer.Direct3D12
                 }
             }
 
+            var model = device.CheckHighestShaderModel(Vortice.Direct3D12.ShaderModel.HighestShaderModel);
+
             heapAccumulator = disposeTracker.Track(new DescriptorHeapAccumulator(device));
 
             Vortice.Direct3D11on12.Apis.D3D11On12CreateDevice(device, Vortice.Direct3D11.DeviceCreationFlags.BgraSupport | Vortice.Direct3D11.DeviceCreationFlags.Debug, [Vortice.Direct3D.FeatureLevel.Level_12_0], [directCommandQueue.Queue], 0,
@@ -125,8 +128,9 @@ namespace Renderer.Direct3D12
 
             backBuffers = new BackBuffers(device, swapChain, on12, deviceContext, immediateContext);
 
+            mapResourceCache = disposeTracker.Track(new MapResourceCache(device));
             bpResourceCache = disposeTracker.Track(new MeshResourceCache(device));           
-            raytraceVolumeRenderer = disposeTracker.Track(new RaytracingVolumeRenderer(bpResourceCache, device, directCommandQueue, size, swapChain.Description1.Format));
+            raytraceVolumeRenderer = disposeTracker.Track(new RaytracingVolumeRenderer(heapAccumulator, bpResourceCache, mapResourceCache, device, directCommandQueue, size, swapChain.Description1.Format));
 
             draw = new Direct2DDraw(factory1, deviceContext, size);
         }

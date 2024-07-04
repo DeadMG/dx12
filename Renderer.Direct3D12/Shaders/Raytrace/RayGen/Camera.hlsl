@@ -1,21 +1,16 @@
 #include "../Ray.hlsl"
 
-// Raytracing output texture, accessed as a UAV
-RWTexture2D<float4> output : register(u0);
-
-// Bilteral filter texture as UAV
-RWTexture2D<float4> previousFilter : register(u1);
-
-// Raytracing acceleration structure, accessed as a SRV
-RaytracingAccelerationStructure SceneBVH : register(t0);
-
 struct CameraMatrices
 {
-    float3 WorldTopLeft: SV_Position;
-    float3 WorldTopRight: SV_Position;
-    float3 WorldBottomLeft: SV_Position;
+    float3 WorldTopLeft;
+    float3 WorldTopRight;
+    float3 WorldBottomLeft;
     
-    float3 Origin: SV_Position;
+    float3 Origin;
+    
+    uint OutputIndex;
+    uint PreviousIndex;
+    uint SceneBVHIndex;
 };
 
 // Camera matrices
@@ -24,7 +19,15 @@ ConstantBuffer<CameraMatrices> Camera : register(b0);
 [shader("raygeneration")]
 void RayGen()
 {
+// Raytracing output texture, accessed as a UAV
+    RWTexture2D<float4> output = ResourceDescriptorHeap[Camera.OutputIndex];
 
+// Bilteral filter texture as UAV
+    RWTexture2D<float4> previousFilter = ResourceDescriptorHeap[Camera.PreviousIndex];
+
+// Raytracing acceleration structure, accessed as a SRV
+    RaytracingAccelerationStructure SceneBVH = ResourceDescriptorHeap[Camera.SceneBVHIndex];
+    
     // Get the location within the dispatched 2D grid of work items
     // (often maps to pixels, so this could represent a pixel coordinate).
     uint2 launchIndex = DispatchRaysIndex().xy;

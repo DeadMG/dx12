@@ -31,7 +31,7 @@ namespace Renderer.Direct3D12
             }));
         }
 
-        public int AddUAV(Vortice.Direct3D12.ID3D12Resource buffer)
+        public uint AddUAV(Vortice.Direct3D12.ID3D12Resource buffer)
         {
             var slot = cbvUavSrvHeap.GetSlot();
 
@@ -46,7 +46,7 @@ namespace Renderer.Direct3D12
             return slot.Index;
         }
 
-        public int AddStructuredBuffer(Vortice.Direct3D12.ID3D12Resource buffer, Vortice.Direct3D12.BufferShaderResourceView view)
+        public uint AddStructuredBuffer(Vortice.Direct3D12.ID3D12Resource buffer, Vortice.Direct3D12.BufferShaderResourceView view)
         {
             var slot = cbvUavSrvHeap.GetSlot();
 
@@ -60,7 +60,7 @@ namespace Renderer.Direct3D12
             return slot.Index;
         }
 
-        public int AddRaytracingStructure(Vortice.Direct3D12.ID3D12Resource resource)
+        public uint AddRaytracingStructure(Vortice.Direct3D12.ID3D12Resource resource)
         {
             var slot = cbvUavSrvHeap.GetSlot();
 
@@ -109,7 +109,7 @@ namespace Renderer.Direct3D12
             private readonly Vortice.Direct3D12.ID3D12DescriptorHeap heap;
             private readonly int increment;
             
-            private int start;
+            private uint start;
 
             public DescriptorHeapHolder(string name, Vortice.Direct3D12.ID3D12Device5 device, Vortice.Direct3D12.DescriptorHeapDescription desc)
             {
@@ -125,7 +125,7 @@ namespace Renderer.Direct3D12
                 return new DescriptorHeapSlot
                 {
                     Index = slot,
-                    Handle = heap.GetCPUDescriptorHandleForHeapStart().Offset(slot, increment),
+                    Handle = heap.GetCPUDescriptorHandleForHeapStart().Offset((int)slot, increment),
                 };
             }
 
@@ -144,7 +144,7 @@ namespace Renderer.Direct3D12
 
         private struct DescriptorHeapSlot
         {
-            public int Index;
+            public uint Index;
             public Vortice.Direct3D12.CpuDescriptorHandle Handle;
         }
     }

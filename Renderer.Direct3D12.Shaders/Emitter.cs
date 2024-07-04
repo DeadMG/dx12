@@ -6,6 +6,7 @@
 
         public void Add(CompilationResult result)
         {
+            if (result == null) return;
             compilationResults.Add(result);
         }
 
@@ -17,11 +18,32 @@
 
             foreach (var file in compilationResults)
             {
-                files.Add(new EmittedFile
+                if (file.Type == EmitType.DXR)
                 {
-                    Contents = new Emit.DXIL().GenerateLibrary(file, typeLookup),
-                    RelativePath = Path.ChangeExtension(file.Path, ".g.cs")
-                });
+                    files.Add(new EmittedFile
+                    {
+                        Contents = new Emit.DXR().GenerateLibrary(file, typeLookup),
+                        RelativePath = Path.ChangeExtension(file.Path, ".g.cs")
+                    });
+                    continue;
+                }
+
+                if (file.Type == EmitType.Compute)
+                {
+                    files.Add(new EmittedFile
+                    {
+                        Contents = new Emit.Compute().GenerateShader(file, typeLookup),
+                        RelativePath = Path.ChangeExtension(file.Path, ".g.cs")
+                    });
+                    continue;
+                }
+
+                if (file.Type == EmitType.None)
+                {
+                    continue;
+                }
+
+                throw new InvalidOperationException();
             }
 
             return files.ToArray();
