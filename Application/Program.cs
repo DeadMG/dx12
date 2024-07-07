@@ -54,7 +54,7 @@ namespace Application
                         {
                             EmissionStrength = 0,
                             EmissionColour = new RGB(0, 0, 0),
-                            Colour = new RGB(0, 0, 1)
+                            Colour = new RGB(0.1f, 0.1f, 1)
                         },
                         new Material
                         {
@@ -70,13 +70,13 @@ namespace Application
                         },
                         new Material
                         {
-                            EmissionStrength = 0.3f,
+                            EmissionStrength = 1f,
                             EmissionColour = new RGB(1, 0.5f, 0),
                             Colour = new RGB(1, 1, 1)
                         },
                         new Material
                         {
-                            EmissionStrength = 0.3f,
+                            EmissionStrength = 1f,
                             EmissionColour = new RGB(0, 0.5f, 1),
                             Colour = new RGB(1, 1, 1)
                         },

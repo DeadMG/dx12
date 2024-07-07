@@ -4,7 +4,7 @@ struct RadiancePayload
 {
     float3 IncomingLight;
     uint Depth;
-    float3 RayColour;
+    bool Filter;
 };
 
 // Attributes output by the raytracing when hitting a surface, here the barycentric coordinates

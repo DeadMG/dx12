@@ -113,6 +113,7 @@ void RadianceMiss(inout RadiancePayload payload)
         float distribution = spotNoise(spherical, Parameters.TemperatureScale, 0);
         
         payload.IncomingLight = brightness * colour(distribution);
+        payload.Filter = false;
     }
     else
     {

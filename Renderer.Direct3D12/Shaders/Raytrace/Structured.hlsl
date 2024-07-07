@@ -25,6 +25,11 @@ struct Material
     float EmissionStrength;
 };
 
+struct RaytracingOutputData
+{
+    bool Filter;
+};
+
 void fakeUse(inout RadiancePayload payload, StarCategory cat)
 {
     payload.IncomingLight += cat.Colour;
@@ -43,4 +48,17 @@ void fakeUse(inout RadiancePayload payload, PrimaryLight p)
 void fakeUse(inout RadiancePayload payload, Material m)
 {
     payload.IncomingLight += m.Colour;
+}
+
+void fakeUse(inout RadiancePayload payload, RaytracingOutputData cat)
+{
+    if (cat.Filter)
+    {
+        payload.IncomingLight *= 2;        
+    }
+}
+
+int index(int2 location, int width)
+{
+    return (location.y * width) + location.x;
 }

@@ -1,5 +1,6 @@
 ﻿using Data.Space;
 using Simulation.Physics;
+using System.Runtime.InteropServices;
 using Util;
 
 namespace Renderer.Direct3D12.Shaders
@@ -55,6 +56,7 @@ namespace Renderer.Direct3D12.Shaders
                 WorldTopLeft = frustum.Points[1],
                 WorldTopRight = frustum.Points[2],
                 Origin = preparation.Camera.Position,
+                DataIndex = preparation.HeapAccumulator.AddStructuredBuffer(screenResources.Data, screenResources.DataSrv),
                 OutputIndex = preparation.HeapAccumulator.AddUAV(screenResources.OutputSrv),
                 SceneBVHIndex = preparation.HeapAccumulator.AddRaytracingStructure(tlas),
                 PreviousIndex = preparation.HeapAccumulator.AddUAV(screenResources.FilterSrv),
@@ -64,20 +66,16 @@ namespace Renderer.Direct3D12.Shaders
         public void CommitRaytracing(RaytraceCommit commit)
         {
             commit.List.List.ResourceBarrierUnorderedAccessView(screenResources.OutputSrv);
-
-            int sigmaD = 2;
+            commit.List.List.ResourceBarrierUnorderedAccessView(screenResources.Data);
 
             // Do stuff
             commit.List.List.SetPipelineState(filterShader.PipelineState);
             commit.List.List.SetComputeRootSignature(filterShader.RootSignature);
             commit.List.List.SetComputeRoot32BitConstants(0, [new Data.FilterParameters
             {
-                KernelWidth = sigmaD,
-                KernelHeight = sigmaD,
-                SigmaD = 2 * (float)Math.Pow(sigmaD, 2),
-                SigmaR = 2 * (float)Math.Pow(1, 2),
                 ImageHeight = (uint)screenSize.Height,
                 ImageWidth = (uint)screenSize.Width,
+                DataIndex = commit.HeapAccumulator.AddStructuredBuffer(screenResources.Data, screenResources.DataSrv),
                 InputIndex = commit.HeapAccumulator.AddUAV(screenResources.OutputSrv),
                 OutputIndex = commit.HeapAccumulator.AddUAV(screenResources.FilterSrv),
             }]);
@@ -95,6 +93,7 @@ namespace Renderer.Direct3D12.Shaders
         internal class RaytracingScreenResources : IDisposable
         {
             private readonly DisposeTracker disposeTracker = new DisposeTracker();
+            private readonly Vortice.Direct3D12.ID3D12Resource dataBuffer;
             private readonly Vortice.Direct3D12.ID3D12Resource outputSrv;
             private readonly Vortice.Direct3D12.ID3D12Resource filteredSrv;
 
@@ -116,10 +115,28 @@ namespace Renderer.Direct3D12.Shaders
                 outputSrv = disposeTracker.Track(device.CreateCommittedResource(Vortice.Direct3D12.HeapType.Default, outputDesc, Vortice.Direct3D12.ResourceStates.CopySource).Name("Raytrace Output UAV"));
                 outputDesc.Format = renderTargetFormat;
                 filteredSrv = disposeTracker.Track(device.CreateCommittedResource(Vortice.Direct3D12.HeapType.Default, outputDesc, Vortice.Direct3D12.ResourceStates.CopySource)).Name("Filter output UAV");
+
+                var numElements = screenSize.Width * screenSize.Height;
+                var dataDesc = new Vortice.Direct3D12.ResourceDescription
+                {
+                    SampleDescription = new Vortice.DXGI.SampleDescription { Count = 1, Quality = 0 },
+                    DepthOrArraySize = 1,
+                    Dimension = Vortice.Direct3D12.ResourceDimension.Buffer,
+                    Format = Vortice.DXGI.Format.Unknown,
+                    MipLevels = 1,
+                    Height = 1,
+                    Width = (ulong)numElements * (ulong)Marshal.SizeOf<Data.RaytracingOutputData>(),
+                    Layout = Vortice.Direct3D12.TextureLayout.RowMajor,
+                    Flags = Vortice.Direct3D12.ResourceFlags.AllowUnorderedAccess
+                };
+                DataSrv = new Vortice.Direct3D12.BufferShaderResourceView { StructureByteStride = Marshal.SizeOf<Data.RaytracingOutputData>(), NumElements = numElements };
+                dataBuffer = disposeTracker.Track(device.CreateCommittedResource(Vortice.Direct3D12.HeapType.Default, dataDesc, Vortice.Direct3D12.ResourceStates.UnorderedAccess)).Name("Raytrace data UAV");
             }
 
             public Vortice.Direct3D12.ID3D12Resource OutputSrv => outputSrv;
             public Vortice.Direct3D12.ID3D12Resource FilterSrv => filteredSrv;
+            public Vortice.Direct3D12.ID3D12Resource Data => dataBuffer;
+            public Vortice.Direct3D12.BufferShaderResourceView DataSrv { get; private set; }
 
             public void Dispose() => disposeTracker.Dispose();
         }

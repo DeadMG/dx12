@@ -92,7 +92,6 @@ void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes 
     Material m = Materials[MaterialIndices[PrimitiveIndex()]];
             
     float3 incomingLight = float3(0, 0, 0);
-    float3 rayColour = float3(1, 1, 1);
     
     int samples = payload.Depth == 1 ? Settings.MaxSamples : 1;
     
@@ -102,7 +101,6 @@ void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes 
         {        
             RadiancePayload newPayload;
             newPayload.IncomingLight = float3(0, 0, 0);
-            newPayload.RayColour = payload.RayColour;
             newPayload.Depth = payload.Depth + 1;
         
             float3 direction = normalize(normal + directionRand(seed));
@@ -124,13 +122,10 @@ void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes 
                 newPayload);
             
             incomingLight += newPayload.IncomingLight;
-            rayColour += newPayload.RayColour;
         }
     }
     
-    rayColour = (rayColour / samples) * m.Colour;
-    incomingLight = (incomingLight / samples) * rayColour;
+    incomingLight = (incomingLight / samples);
     
-    payload.IncomingLight += incomingLight + (payload.RayColour * m.EmissionStrength * m.EmissionColour * rayColour);
-    payload.RayColour *= rayColour;
+    payload.IncomingLight += min((incomingLight * m.Colour) + (m.EmissionStrength * m.EmissionColour), float3(1, 1, 1));
 }
