@@ -30,7 +30,7 @@ namespace Data.Mesh
             return points
                 .Select((v, index) => new Vertex
                 {
-                    Position = v,
+                    Position = v - offset,
                     Normal = Vector3.Normalize(normals[index])
                 })
                 .ToArray();
