@@ -66,6 +66,7 @@ namespace Renderer.Direct3D12.Shaders.Data {{
             if (type is StructHlslType structure) return structure.Name;
             if (type == PrimitiveHlslType.Float) return "float";
             if (type == PrimitiveHlslType.Uint) return "uint";
+            if (type == PrimitiveHlslType.Int) return "int";
             if (type is MatrixHlslType matrix)
             {
                 return $"Matrix{matrix.Rows}x{matrix.Columns}";

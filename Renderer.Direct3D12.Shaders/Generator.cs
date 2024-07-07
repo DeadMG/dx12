@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text.RegularExpressions;
 
 namespace Renderer.Direct3D12.Shaders
 {
@@ -88,17 +89,21 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
                     if (functions.Length != 1) throw new InvalidOperationException($"Found {reflection.Description.FunctionCount} entry points in {filename}: {string.Join(", ", functions.Select(s => s.Description.Name))}");
 
                     var function = functions[0];
-
                     return new CompilationResult
                     {
                         DXIL = result.GetResult().AsBytes(),
                         Inputs = Enumerable.Range(0, reflection.Description.FunctionCount).Select(f => reflection.GetFunctionByIndex(f)).SelectMany(function => Enumerable.Range(0, function.Description.BoundResources).Select(bi => Map(new FunctionReflectionContext(function), function.GetResourceBindingDescription(bi)))).ToArray(),
-                        Export = function.Description.Name,
+                        Export = UnmangleName(function.Description.Name),
                         Path = filename,
                         Type = EmitType.DXR,
                     };
                 }
             }
+        }
+
+        private string UnmangleName(string name)
+        {
+            return new Regex("\\w+").Matches(name)[0].Value;
         }
 
         private BoundInput Map(IReflectionContext context, Vortice.Direct3D12.Shader.InputBindingDescription desc)
@@ -178,6 +183,7 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
         {
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.UInt) return PrimitiveHlslType.Uint;
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Float) return PrimitiveHlslType.Float;
+            if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Int) return PrimitiveHlslType.Int;
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Vector && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Float)
             {
                 return new VectorHlslType

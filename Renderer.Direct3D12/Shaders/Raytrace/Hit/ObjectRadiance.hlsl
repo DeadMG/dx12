@@ -7,13 +7,11 @@ struct ObjectRadianceParameters
     uint Seed;
     uint MaxBounces;
     uint MaxSamples;
-    uint Lights;
     
     uint VerticesIndex;
     uint VertexIndicesIndex;
     uint MaterialIndicesIndex;
     uint MaterialsIndex;
-    uint LightsIndex;
     uint TLASIndex;
 };
 
@@ -69,7 +67,7 @@ float3 faceNormal(uint vertId, float4x4 worldMatrix)
 }
 
 [shader("closesthit")]
-void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib)
+void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes attrib)
 {
     float3 barycentrics = barycentric(attrib);
     
@@ -89,7 +87,6 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib)
     
     StructuredBuffer<uint> MaterialIndices = ResourceDescriptorHeap[Settings.MaterialIndicesIndex];
     StructuredBuffer<Material> Materials = ResourceDescriptorHeap[Settings.MaterialsIndex];
-    StructuredBuffer<PrimaryLight> Lights = ResourceDescriptorHeap[Settings.LightsIndex];
     RaytracingAccelerationStructure SceneBVH = ResourceDescriptorHeap[Settings.TLASIndex];
     
     Material m = Materials[MaterialIndices[PrimitiveIndex()]];
@@ -120,9 +117,9 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib)
                 SceneBVH,
                 0,
                 0xFF,
-                1,
                 0,
-                1,
+                0,
+                0,
                 ray,
                 newPayload);
             
@@ -131,44 +128,9 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib)
         }
     }
     
-    for (int i = 0; i < Settings.Lights; i++)
-    {
-        ShadowPayload newPayload;
-        newPayload.Colour = float3(0, 0, 0);
-        
-        float3 targetPoint = Lights[i].Position + (directionRand(seed) * Lights[i].Size);
-        float3 direction = normalize(startPosition - targetPoint);
-        
-        if (dot(normal, direction) < 0.0f)
-        {
-            continue;
-        }
-        
-        RayDesc ray;
-        ray.Origin = startPosition;
-        ray.Direction = direction;
-        ray.TMin = 0.01;
-        ray.TMax = 10000;
-    
-        TraceRay(
-                SceneBVH,
-                0,
-                0xFF,
-                0,
-                0,
-                0,
-                ray,
-                newPayload);
-            
-        incomingLight += newPayload.Colour;
-        rayColour += newPayload.Colour;        
-    }
-    
-    samples += Settings.Lights;
-    
-    incomingLight /= samples;
-    rayColour /= samples;
+    rayColour = (rayColour / samples) * m.Colour;
+    incomingLight = (incomingLight / samples) * rayColour;
     
     payload.IncomingLight += incomingLight + (payload.RayColour * m.EmissionStrength * m.EmissionColour * rayColour);
-    payload.RayColour *= m.Colour * rayColour;
+    payload.RayColour *= rayColour;
 }

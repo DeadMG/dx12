@@ -84,7 +84,7 @@ namespace Data.Mesh
                 triangles = Subdivide(vertices, triangles);
             }
 
-            return Mesh.NewFromPoints(vertices.ToArray(), triangles.ToArray(), [material]);
+            return Mesh.NewFromPoints($"Icosphere {subdivisions}", vertices.ToArray(), triangles.ToArray(), [material]);
         }
 
         private List<Triangle> Subdivide(List<Vector3> vertices, List<Triangle> triangles)

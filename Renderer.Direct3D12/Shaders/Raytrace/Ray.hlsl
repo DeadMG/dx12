@@ -7,13 +7,7 @@ struct RadiancePayload
     float3 RayColour;
 };
 
-struct ShadowPayload
-{
-    float3 Colour;
-};
-
-// Attributes output by the raytracing when hitting a surface,
-// here the barycentric coordinates
+// Attributes output by the raytracing when hitting a surface, here the barycentric coordinates
 struct TriangleAttributes
 {
     float2 bary;

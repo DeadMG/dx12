@@ -44,7 +44,7 @@ namespace Data.Space
             return ((screen / (float)max) * 2) - 1;
         }
 
-        private static Vector3 PerspectiveDivide(Vector4 value)
+        public static Vector3 PerspectiveDivide(Vector4 value)
         {
             // Don't allow annoying infinities
             return new Vector3(value.X, value.Y, value.Z) / Math.Max(value.W, 0.00001f);

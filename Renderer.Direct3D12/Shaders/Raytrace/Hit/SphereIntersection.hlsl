@@ -8,7 +8,7 @@ void SphereIntersection()
 {
     float3 direction = WorldRayDirection();
     float3 origin = WorldRayOrigin();
-    
+        
     float3 L = Sphere.WorldPosition - origin;
     float tca = dot(L, direction);
     float d2 = dot(L, L) - (tca * tca);

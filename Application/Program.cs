@@ -22,8 +22,9 @@ namespace Application
 
             var print = new Blueprint
             {
-                Name = "Hypercraft",
+                Name = "Fighter",
                 Mesh = Mesh.NewFromPoints(
+                    "Hypercraft",
                     [
                         new Vector3(3.0f, 0.0f, 0.0f),
                         new Vector3(0.0f, 3.0f, -3.0f),
@@ -41,20 +42,44 @@ namespace Application
                         new Vector3(-2.0f, 1.0f, 2.0f)
                     ],
                     [
-                        new Triangle { Vertices = [0, 1, 2], MaterialIndex = 0 },
-                        new Triangle { Vertices = [2, 1, 3], MaterialIndex = 0 },
-                        new Triangle { Vertices = [3, 1, 0], MaterialIndex = 0 },
-                        new Triangle { Vertices = [0, 2, 3], MaterialIndex = 0 },
-                        new Triangle { Vertices = [6, 5, 4], MaterialIndex = 0 },
-                        new Triangle { Vertices = [7, 8, 9], MaterialIndex = 0 },
+                        new Triangle { Vertices = [0, 1, 2], MaterialIndex = 1 },
+                        new Triangle { Vertices = [2, 1, 3], MaterialIndex = 2 },
+                        new Triangle { Vertices = [3, 1, 0], MaterialIndex = 1 },
+                        new Triangle { Vertices = [0, 2, 3], MaterialIndex = 2 },
+                        new Triangle { Vertices = [6, 5, 4], MaterialIndex = 3 },
+                        new Triangle { Vertices = [7, 8, 9], MaterialIndex = 4 },
                     ], 
                     [
                         new Material
                         {
                             EmissionStrength = 0,
                             EmissionColour = new RGB(0, 0, 0),
+                            Colour = new RGB(0, 0, 1)
+                        },
+                        new Material
+                        {
+                            EmissionStrength = 0,
+                            EmissionColour = new RGB(0, 0, 0),
+                            Colour = new RGB(0, 1, 0)
+                        },
+                        new Material
+                        {
+                            EmissionStrength = 0,
+                            EmissionColour = new RGB(0, 0, 0),
+                            Colour = new RGB(1, 0, 0)
+                        },
+                        new Material
+                        {
+                            EmissionStrength = 0.3f,
+                            EmissionColour = new RGB(1, 0.5f, 0),
                             Colour = new RGB(1, 1, 1)
-                        }
+                        },
+                        new Material
+                        {
+                            EmissionStrength = 0.3f,
+                            EmissionColour = new RGB(0, 0.5f, 1),
+                            Colour = new RGB(1, 1, 1)
+                        },
                     ]
                 ),
                 Acceleration = 3,
@@ -66,13 +91,14 @@ namespace Application
                 AmbientLightLevel = 0.1f,
                 Dimensions = new Vector3(100000, 100000, 100000),
                 Objects = [
-                ],
-                PrimaryLights = [
-                    new PrimaryLight
+                    new PredefinedObject
                     {
-                        Size = 20,
-                        Position = new Vector3(-40, 0, 40),
-                        Material = new Material { EmissionStrength = 0.6f, EmissionColour = new RGB { G = 1, B = 1, R = 1 }, Colour = new RGB { B = 1, G = 0.1f, R = 0.1f } }
+                        Geometry = new SphereGeometry 
+                        {
+                            Material = new Material { EmissionStrength = 1f, EmissionColour = RGB.From255(242, 241, 247), Colour = RGB.From255(153, 170, 240) } 
+                        },
+                        WorldMatrix = Matrix4x4.CreateScale(20) * Matrix4x4.CreateTranslation(new Vector3(-40, 0, 40)),
+                        Name = "Blue sun",
                     }
                 ],
                 StarfieldNoiseCutoff = 0.95f,

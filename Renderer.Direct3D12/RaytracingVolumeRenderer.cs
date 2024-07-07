@@ -19,14 +19,11 @@ namespace Renderer.Direct3D12
 
 
         private readonly Shaders.Raytrace.Hit.ObjectRadiance objectRadiance;
-        private readonly Shaders.Raytrace.Hit.ObjectShadow objectShadow;
         private readonly Shaders.Raytrace.Hit.SphereIntersection sphereIntersection;
         private readonly Shaders.Raytrace.Hit.SphereRadiance sphereRadiance;
-        private readonly Shaders.Raytrace.Hit.SphereShadow sphereShadow;
         private readonly Shaders.Raytrace.RayGen.Camera cameraShader;
         private readonly Shaders.Raytrace.RayGen.Filter filterShader;
         private readonly Shaders.Raytrace.Miss.RadianceMiss radianceMiss;
-        private readonly Shaders.Raytrace.Miss.ShadowMiss shadowMiss;
 
         private readonly Shaders.MissShaders missShaderStep;
         private readonly Shaders.CameraRayGen rayGenStep;
@@ -40,25 +37,25 @@ namespace Renderer.Direct3D12
             this.heapAccumulator = heapAccumulator;
 
             objectRadiance = disposeTracker.Track(new Shaders.Raytrace.Hit.ObjectRadiance(device));
-            objectShadow = disposeTracker.Track(new Shaders.Raytrace.Hit.ObjectShadow(device));
             sphereIntersection = disposeTracker.Track(new Shaders.Raytrace.Hit.SphereIntersection(device));
             sphereRadiance = disposeTracker.Track(new Shaders.Raytrace.Hit.SphereRadiance(device));
-            sphereShadow = disposeTracker.Track(new Shaders.Raytrace.Hit.SphereShadow(device));
             cameraShader = disposeTracker.Track(new Shaders.Raytrace.RayGen.Camera(device));
             radianceMiss = disposeTracker.Track(new Shaders.Raytrace.Miss.RadianceMiss(device));
-            shadowMiss = disposeTracker.Track(new Shaders.Raytrace.Miss.ShadowMiss(device));
             filterShader = disposeTracker.Track(new Shaders.Raytrace.RayGen.Filter(device));
 
-            missShaderStep = disposeTracker.Track(new Shaders.MissShaders(mapResourceCache, radianceMiss, shadowMiss));
+            missShaderStep = disposeTracker.Track(new Shaders.MissShaders(mapResourceCache, radianceMiss));
             rayGenStep = disposeTracker.Track(new Shaders.CameraRayGen(device, screenSize, renderTargetFormat, filterShader, cameraShader));
 
-            objectStep = disposeTracker.Track(new Shaders.ObjectStep(meshResourceCache, mapResourceCache, maxRays, objectRadiance, objectShadow, sphereRadiance, sphereShadow, sphereIntersection));
+            objectStep = disposeTracker.Track(new Shaders.ObjectStep(meshResourceCache, mapResourceCache, maxRays, objectRadiance, sphereRadiance, sphereIntersection));
 
-            emptyGlobalSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1())).Name("Empty global signature");
+            emptyGlobalSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(Vortice.Direct3D12.RootSignatureFlags.ConstantBufferViewShaderResourceViewUnorderedAccessViewHeapDirectlyIndexed))).Name("Empty global signature");
 
             var shaderConfigSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.RaytracingShaderConfig { MaxAttributeSizeInBytes = 8, MaxPayloadSizeInBytes = 32 });
+            var globalSignatureSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.GlobalRootSignature(emptyGlobalSignature));
 
             Vortice.Direct3D12.StateSubObject[] fixedSubobjects = [
+                globalSignatureSubobject,
+                new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.SubObjectToExportsAssociation(globalSignatureSubobject, RaytracingShaders.Select(s => s.Export).ToArray())),
                 shaderConfigSubobject,
                 new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.SubObjectToExportsAssociation(shaderConfigSubobject, RaytracingShaders.Select(s => s.Export).ToArray())),
                 new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.RaytracingPipelineConfig(maxRays))
@@ -74,7 +71,7 @@ namespace Renderer.Direct3D12
             stateObjectProperties = disposeTracker.Track(new StateObjectProperties(state));
         }
 
-        private Shaders.ILibrary[] RaytracingShaders => [objectRadiance, objectShadow, sphereIntersection, sphereRadiance, sphereShadow, radianceMiss, shadowMiss, cameraShader];
+        private Shaders.ILibrary[] RaytracingShaders => [objectRadiance, sphereIntersection, sphereRadiance, radianceMiss, cameraShader];
         private Shaders.IRaytracingPipelineStep[] Steps => [missShaderStep, rayGenStep, objectStep];
 
         public void Render(RendererParameters rp, Volume volume, Camera camera)
@@ -100,9 +97,9 @@ namespace Renderer.Direct3D12
 
             var tlas = CreateTLAS(preparation);
 
+            entry.List.SetDescriptorHeaps(heapAccumulator.GetHeaps());
             entry.List.SetComputeRootSignature(emptyGlobalSignature);
             entry.List.SetPipelineState1(state);
-            entry.List.SetDescriptorHeaps(heapAccumulator.GetHeaps());
 
             var dispatchDesc = preparation.ShaderTable.Create(device, tlas, entry);
             dispatchDesc.Depth = 1;
@@ -110,7 +107,7 @@ namespace Renderer.Direct3D12
             dispatchDesc.Height = camera.ScreenSize.Height;
             entry.List.DispatchRays(dispatchDesc);
 
-            var commit = new Shaders.RaytraceCommit { RenderTarget = rp.RenderTarget, List = entry };
+            var commit = new Shaders.RaytraceCommit { RenderTarget = rp.RenderTarget, List = entry, HeapAccumulator = heapAccumulator };
             foreach (var step in Steps)
             {
                 step.CommitRaytracing(commit);

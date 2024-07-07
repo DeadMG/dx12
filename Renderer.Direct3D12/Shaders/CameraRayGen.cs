@@ -65,7 +65,7 @@ namespace Renderer.Direct3D12.Shaders
         {
             commit.List.List.ResourceBarrierUnorderedAccessView(screenResources.OutputSrv);
 
-            uint sigmaD = 2;
+            int sigmaD = 2;
 
             // Do stuff
             commit.List.List.SetPipelineState(filterShader.PipelineState);
@@ -78,6 +78,8 @@ namespace Renderer.Direct3D12.Shaders
                 SigmaR = 2 * (float)Math.Pow(1, 2),
                 ImageHeight = (uint)screenSize.Height,
                 ImageWidth = (uint)screenSize.Width,
+                InputIndex = commit.HeapAccumulator.AddUAV(screenResources.OutputSrv),
+                OutputIndex = commit.HeapAccumulator.AddUAV(screenResources.FilterSrv),
             }]);
             commit.List.List.Dispatch((int)Math.Ceiling(screenSize.Width / (float)32), (int)Math.Ceiling(screenSize.Height / (float)32), 1);
 

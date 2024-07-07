@@ -9,7 +9,7 @@ namespace Renderer.Direct3D12
     internal class MeshResourceCache : IDisposable
     {
         private readonly DisposeTracker disposeTracker = new DisposeTracker();
-        private readonly Dictionary<Guid, MeshData> cache = new Dictionary<Guid, MeshData>();
+        private readonly Dictionary<Mesh, MeshData> cache = new Dictionary<Mesh, MeshData>();
 
         private readonly Vortice.Direct3D12.ID3D12Device5 device;
 
@@ -18,9 +18,10 @@ namespace Renderer.Direct3D12
             this.device = device;
         }
 
-        public MeshData Load(string name, Mesh mesh, PooledCommandList list)
+        public MeshData Load(Mesh mesh, PooledCommandList list)
         {
-            if (cache.ContainsKey(mesh.Id)) return cache[mesh.Id];
+            if (cache.ContainsKey(mesh)) return cache[mesh];
+            var name = mesh.Name;
 
             var vertices = mesh.Vertices.Select(x => new Shaders.Data.Vertex { Normal = x.Normal, Position = x.Position }).ToArray();
             var vertexIndices = mesh.Triangles.SelectMany(x => x.Vertices).ToArray();
@@ -113,11 +114,11 @@ namespace Renderer.Direct3D12
                 }
             };
 
-            cache[mesh.Id] = data;
+            cache[mesh] = data;
 
             list.List.ResourceBarrierUnorderedAccessView(result);
 
-            return cache[mesh.Id];
+            return data;
         }
 
         private Vortice.DXGI.Format IndexFormat(Type type)

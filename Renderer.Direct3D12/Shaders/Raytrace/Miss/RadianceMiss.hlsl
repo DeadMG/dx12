@@ -98,7 +98,7 @@ float3 colour(float distribution)
 }
 
 [shader("miss")]
-void Miss(inout RadiancePayload payload)
+void RadianceMiss(inout RadiancePayload payload)
 {
     // Direct camera ray
     if (payload.Depth == 1)

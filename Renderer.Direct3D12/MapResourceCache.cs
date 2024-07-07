@@ -29,23 +29,13 @@ namespace Renderer.Direct3D12
             var categoryBuffer = disposeTracker.Track(device.CreateStaticBuffer(categories.SizeOf())).Name($"{map.Name} category buffer");
             list.UploadData(categoryBuffer, categories);
 
-            var lights = map.PrimaryLights.Select(x => new Shaders.Data.PrimaryLight { Position = x.Position, Size = x.Size }).ToArray();
-            var lightBuffer = disposeTracker.Track(device.CreateStaticBuffer(categories.SizeOf())).Name($"{map.Name} light buffer");
-            list.UploadData(lightBuffer, lights);
-
             var mapData = new MapData
             {
                 CategoryBuffer = categoryBuffer,
                 CategorySRV = new Vortice.Direct3D12.BufferShaderResourceView
                 {
-                    NumElements = lights.Length,
-                    StructureByteStride = Marshal.SizeOf<Shaders.Data.StarCategory>(),
-                },
-                LightBuffer = lightBuffer,
-                LightSRV = new Vortice.Direct3D12.BufferShaderResourceView
-                {
                     NumElements = categories.Length,
-                    StructureByteStride = Marshal.SizeOf<Shaders.Data.PrimaryLight>()
+                    StructureByteStride = Marshal.SizeOf<Shaders.Data.StarCategory>(),
                 },
                 Seed = map.StarfieldSeed ?? rng.GetRandom<uint>()
             };
@@ -66,7 +56,5 @@ namespace Renderer.Direct3D12
         public required uint Seed { get; init; }
         public required Vortice.Direct3D12.ID3D12Resource CategoryBuffer { get; init; }
         public required Vortice.Direct3D12.BufferShaderResourceView CategorySRV { get; init; }
-        public required Vortice.Direct3D12.ID3D12Resource LightBuffer { get; init; }
-        public required Vortice.Direct3D12.BufferShaderResourceView LightSRV { get; init; }
     }
 }

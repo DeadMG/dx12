@@ -53,7 +53,9 @@ namespace Renderer.Direct3D12
             device.CreateShaderResourceView(buffer, 
                 new Vortice.Direct3D12.ShaderResourceViewDescription 
                 { 
-                    Buffer = view
+                    Buffer = view,
+                    ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.Buffer,
+                    Shader4ComponentMapping = Vortice.Direct3D12.ShaderComponentMapping.Default,
                 },
                 slot.Handle);
 
@@ -83,7 +85,7 @@ namespace Renderer.Direct3D12
         public Vortice.Direct3D12.CpuDescriptorHandle AddRenderTargetView(Vortice.Direct3D12.ID3D12Resource renderTarget)
         {
             var slot = renderTargetHeap.GetSlot();
-            device.CreateShaderResourceView(renderTarget, null, slot.Handle);
+            device.CreateRenderTargetView(renderTarget, null, slot.Handle);
             return slot.Handle;
         }
 
@@ -95,7 +97,7 @@ namespace Renderer.Direct3D12
 
         public Vortice.Direct3D12.ID3D12DescriptorHeap[] GetHeaps()
         {
-            return [cbvUavSrvHeap.Heap, renderTargetHeap.Heap];
+            return [cbvUavSrvHeap.Heap];
         }
 
         public void Dispose()

@@ -1,22 +1,19 @@
 struct FilterParameters
 {
-    uint KernelWidth;
-    uint KernelHeight;
+    int KernelWidth;
+    int KernelHeight;
     
     uint ImageWidth;
     uint ImageHeight;
     
     float SigmaD;
     float SigmaR;
+    
+    uint InputIndex;
+    uint OutputIndex;
 };
 
 ConstantBuffer<FilterParameters> Parameters : register(b0);
-
-// Raytracing output texture, accessed as a UAV
-RWTexture2D<float4> input : register(u0);
-
-// Filter output texture as UAV
-RWTexture2D<float4> output : register(u1);
 
 float w(int2 target, float originalIntensity, int2 kernel, float newIntensity)
 {
@@ -38,8 +35,10 @@ float saturation(float3 colour)
 
 float3 filter(int2 pixel)
 {
+    RWTexture2D<float4> input = ResourceDescriptorHeap[Parameters.InputIndex];
+    
     float weightSum = 0;
-    float3 weightIntensitySum = 0;
+    float3 weightIntensitySum = float3(0, 0, 0);
     
     float3 originalColour = input[pixel].rgb;
     float originalIntensity = length(originalColour);
@@ -62,14 +61,16 @@ float3 filter(int2 pixel)
         }
     }
 
-    return weightIntensitySum / weightSum;    
+    return weightIntensitySum / weightSum;
 }
 
 [numthreads(32, 32, 1)]
 void compute(int2 id: SV_DispatchThreadID)
 {
+    RWTexture2D<float4> output = ResourceDescriptorHeap[Parameters.OutputIndex];
+    
     if (id.x >= Parameters.ImageWidth) return;
     if (id.y >= Parameters.ImageHeight) return;
     
-    output[id] = float4(filter(id), input[id].a);
+    output[id] = float4(filter(id), 1.0f);
 }

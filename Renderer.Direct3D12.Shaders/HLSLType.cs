@@ -11,6 +11,7 @@
 
         public static readonly PrimitiveHlslType Uint = new PrimitiveHlslType { Name = "uint" };
         public static readonly PrimitiveHlslType Float = new PrimitiveHlslType { Name = "float" };
+        public static readonly PrimitiveHlslType Int = new PrimitiveHlslType { Name = "int" };
     }
 
     public class StructHlslType : IHlslType

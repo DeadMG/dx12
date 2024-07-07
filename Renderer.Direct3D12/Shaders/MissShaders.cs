@@ -8,13 +8,11 @@ namespace Renderer.Direct3D12.Shaders
         private readonly DisposeTracker disposeTracker = new DisposeTracker();
         private readonly MapResourceCache mapResourceCache;
         private readonly Raytrace.Miss.RadianceMiss radianceMiss;
-        private readonly Raytrace.Miss.ShadowMiss shadowMiss;
 
-        public MissShaders(MapResourceCache mapResourceCache, Raytrace.Miss.RadianceMiss radianceMiss, Raytrace.Miss.ShadowMiss shadowMiss)
+        public MissShaders(MapResourceCache mapResourceCache, Raytrace.Miss.RadianceMiss radianceMiss)
         {
             this.mapResourceCache = mapResourceCache;
             this.radianceMiss = radianceMiss;
-            this.shadowMiss = shadowMiss;
         }
 
         public Vortice.Direct3D12.StateSubObject[] CreateStateObjects() => [];
@@ -36,12 +34,10 @@ namespace Renderer.Direct3D12.Shaders
                 StarCategories = (uint)preparation.Volume.Map.StarCategories.Length,
                 Seed = mapData.Seed,
                 AmbientLight = preparation.Volume.Map.AmbientLightLevel,
-                CategoryIndex = preparation.HeapAccumulator.AddStructuredBuffer(mapData.CategoryBuffer, 
-                    new Vortice.Direct3D12.BufferShaderResourceView { NumElements = preparation.Volume.Map.StarCategories.Length, StructureByteStride = Marshal.SizeOf<Data.StarCategory>() })
+                CategoryIndex = preparation.HeapAccumulator.AddStructuredBuffer(mapData.CategoryBuffer, mapData.CategorySRV)
             };
 
             preparation.ShaderTable.AddMiss(radianceMiss.Export, tlas => parameters.GetBytes());
-            preparation.ShaderTable.AddMiss(shadowMiss.Export, tlas => parameters.GetBytes());
         }
 
         public void CommitRaytracing(RaytraceCommit commit)

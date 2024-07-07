@@ -10,7 +10,6 @@ namespace Simulation
         public required Vector3 Dimensions { get; init; }
 
         public required PredefinedObject[] Objects { get; init; }
-        public required PrimaryLight[] PrimaryLights { get; init; }
 
         public required float StarfieldNoiseScale { get; init; }
         public required float StarfieldNoiseCutoff { get; init; }
@@ -23,18 +22,10 @@ namespace Simulation
         public required Guid Id { get; init; }
     }
 
-    public struct PrimaryLight
-    {
-        public required Material Material { get; init; }
-        public required float Size { get; init; }
-        public required Vector3 Position { get; init; }
-    }
-
     public struct PredefinedObject
     {
-        public required Vector3 Position { get; init; }
-        public required float Size { get; init; }
-        public required Mesh Mesh { get; init; }
+        public required Matrix4x4 WorldMatrix { get; init; }
+        public required IGeometry Geometry { get; init; }
         public required string Name { get; init; }
     }
 

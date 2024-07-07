@@ -23,7 +23,7 @@ namespace Renderer.Direct3D12.{String.Join(".", path)}
             var parameters = new List<Vortice.Direct3D12.RootParameter1>();
             {ConstantParameter(constant, typeLookup)}
 
-            var flags = Vortice.Direct3D12.RootSignatureFlags.LocalRootSignature | Vortice.Direct3D12.RootSignatureFlags.ConstantBufferViewShaderResourceViewUnorderedAccessViewHeapDirectlyIndexed;
+            var flags = Vortice.Direct3D12.RootSignatureFlags.LocalRootSignature;
             signature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(flags, parameters.ToArray()))).Name(""{String.Join(".", path)}.{name} signature"");
         }}
 
