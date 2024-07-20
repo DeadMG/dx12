@@ -1,5 +1,5 @@
 ﻿using Data.Mesh;
-using Data.Space;
+using Simulation.Physics;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Util;
@@ -24,14 +24,18 @@ namespace Renderer.Direct3D12
             var name = mesh.Name;
 
             var vertices = mesh.Vertices.Select(x => new Shaders.Data.Vertex { Normal = x.Normal, Position = x.Position }).ToArray();
-            var vertexIndices = mesh.Triangles.SelectMany(x => x.Vertices).ToArray();
-            var materialIndices = mesh.Triangles.Select(x => (uint)x.MaterialIndex).ToArray();
+            var triangles = mesh.Triangles.Select(x => new Shaders.Data.Triangle { Power = Power(mesh, x), MaterialIndex = x.MaterialIndex, VertexIndex1 = (uint)x.Vertices[0], VertexIndex2 = (uint)x.Vertices[1], VertexIndex3 = (uint)x.Vertices[2] }).ToArray();
             var materials = mesh.Materials.Select(m => new Shaders.Data.Material { Colour = m.Colour, EmissionColour = m.EmissionColour, EmissionStrength = m.EmissionStrength }).ToArray();
+            var totalPower = mesh.Triangles.Sum(t => Power(mesh, t));
+            var aabb = AABB.FromVertices(mesh.Vertices.Select(x => x.Position));
+            var size = Math.Max(aabb.Start.X - aabb.End.X, Math.Max(aabb.Start.Y - aabb.End.Y, aabb.Start.Z - aabb.End.Z));
 
             var vertexBuffer = disposeTracker.Track(device.CreateStaticBuffer(vertices.SizeOf()).Name($"{name} vertex buffer"));
-            var indexBuffer = disposeTracker.Track(device.CreateStaticBuffer(vertexIndices.SizeOf()).Name($"{name} vertex index buffer"));
-            var materialIndexBuffer = disposeTracker.Track(device.CreateStaticBuffer(materialIndices.SizeOf())).Name($"{name} material index buffer");
+            var triangleBuffer = disposeTracker.Track(device.CreateStaticBuffer(triangles.SizeOf()).Name($"{name} vertex index buffer"));
             var materialBuffer = disposeTracker.Track(device.CreateStaticBuffer(materials.SizeOf())).Name($"{name} material buffer");
+
+            var indices = mesh.Triangles.SelectMany(m => m.Vertices).ToArray();
+            var indexBuffer = list.DisposeAfterExecution(list.CreateUploadBuffer(indices));
 
             var asDesc = new Vortice.Direct3D12.BuildRaytracingAccelerationStructureInputs
             {
@@ -47,8 +51,8 @@ namespace Renderer.Direct3D12
                         Triangles = new Vortice.Direct3D12.RaytracingGeometryTrianglesDescription
                         {
                             IndexBuffer = indexBuffer.GPUVirtualAddress,
-                            IndexCount = vertexIndices.Length,
-                            IndexFormat = IndexFormat(vertexIndices[0].GetType()),
+                            IndexCount = indices.Length,
+                            IndexFormat = IndexFormat(mesh.Triangles[0].Vertices[0].GetType()),
                             VertexBuffer = new Vortice.Direct3D12.GpuVirtualAddressAndStride
                             {
                                 StartAddress = vertexBuffer.GPUVirtualAddress,
@@ -68,8 +72,7 @@ namespace Renderer.Direct3D12
             };
 
             list.UploadData(vertexBuffer, vertices);
-            list.UploadData(indexBuffer, vertexIndices);
-            list.UploadData(materialIndexBuffer, materialIndices);
+            list.UploadData(triangleBuffer, triangles);
             list.UploadData(materialBuffer, materials);
 
             var prebuild = device.GetRaytracingAccelerationStructurePrebuildInfo(asDesc);
@@ -88,11 +91,11 @@ namespace Renderer.Direct3D12
             var data = new MeshData
             { 
                 BLAS = result, 
-                VertexIndexBuffer = indexBuffer,
-                VertexIndexSRV = new Vortice.Direct3D12.BufferShaderResourceView
+                TriangleBuffer = triangleBuffer,
+                TriangleSRV = new Vortice.Direct3D12.BufferShaderResourceView
                 {
-                    StructureByteStride = Marshal.SizeOf<uint>(),
-                    NumElements = vertexIndices.Length,
+                    StructureByteStride = Marshal.SizeOf<Shaders.Data.Triangle>(),
+                    NumElements = triangles.Length,
                 },
                 VertexBuffer = vertexBuffer,
                 VertexSRV  = new Vortice.Direct3D12.BufferShaderResourceView
@@ -106,12 +109,8 @@ namespace Renderer.Direct3D12
                     StructureByteStride = Marshal.SizeOf<Shaders.Data.Material>(),
                     NumElements = materials.Length,
                 },
-                MaterialIndexBuffer = materialIndexBuffer,
-                MaterialIndexSRV = new Vortice.Direct3D12.BufferShaderResourceView
-                {
-                    StructureByteStride = Marshal.SizeOf<uint>(),
-                    NumElements = materialIndices.Length,
-                }
+                Power = totalPower,
+                Size = size
             };
 
             cache[mesh] = data;
@@ -119,6 +118,17 @@ namespace Renderer.Direct3D12
             list.List.ResourceBarrierUnorderedAccessView(result);
 
             return data;
+        }
+
+        private float Power(Mesh mesh, Triangle triangle)
+        {
+            var a = mesh.Vertices[triangle.Vertices[0]].Position;
+            var b = mesh.Vertices[triangle.Vertices[1]].Position;
+            var c = mesh.Vertices[triangle.Vertices[2]].Position;
+
+            var sizeWeight = Vector3.Cross(b - a, c - a).Length();
+
+            return sizeWeight * (mesh.Materials[triangle.MaterialIndex].EmissionStrength);
         }
 
         private Vortice.DXGI.Format IndexFormat(Type type)
@@ -145,13 +155,13 @@ namespace Renderer.Direct3D12
         {
             public required Vortice.Direct3D12.ID3D12Resource VertexBuffer { get; init; }
             public required Vortice.Direct3D12.BufferShaderResourceView VertexSRV { get; init; }
-            public required Vortice.Direct3D12.ID3D12Resource VertexIndexBuffer { get; init; }
-            public required Vortice.Direct3D12.BufferShaderResourceView VertexIndexSRV { get; init; }
-            public required Vortice.Direct3D12.ID3D12Resource MaterialIndexBuffer { get; init; }
-            public required Vortice.Direct3D12.BufferShaderResourceView MaterialIndexSRV { get; init; }
+            public required Vortice.Direct3D12.ID3D12Resource TriangleBuffer { get; init; }
+            public required Vortice.Direct3D12.BufferShaderResourceView TriangleSRV { get; init; }
             public required Vortice.Direct3D12.ID3D12Resource MaterialBuffer { get; init; }
             public required Vortice.Direct3D12.BufferShaderResourceView MaterialSRV { get; init; }
             public required Vortice.Direct3D12.ID3D12Resource BLAS { get; init; }
+            public required float Power { get; init; }
+            public required float Size { get; init; }
         }
     }
 }

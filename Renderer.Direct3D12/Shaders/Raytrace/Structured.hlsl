@@ -12,12 +12,6 @@ struct Vertex
     float3 Normal;
 };
 
-struct PrimaryLight
-{
-    float3 Position;
-    float Size;
-};
-
 struct Material
 {
     float3 Colour;
@@ -30,6 +24,26 @@ struct RaytracingOutputData
     bool Filter;
 };
 
+struct Triangle
+{
+    uint VertexIndex1;
+    uint VertexIndex2;
+    uint VertexIndex3;
+    uint MaterialIndex;
+    float Power;
+};
+
+struct LightSource
+{
+    float Power;
+    uint VerticesIndex;
+    uint TrianglesIndex;
+    float4x4 WorldMatrix;
+    float3 Position;
+    float Size;
+    bool DistanceIndependent;
+};
+
 void fakeUse(inout RadiancePayload payload, StarCategory cat)
 {
     payload.IncomingLight += cat.Colour;
@@ -40,14 +54,19 @@ void fakeUse(inout RadiancePayload payload, Vertex v)
     payload.IncomingLight += v.Position;
 }
 
-void fakeUse(inout RadiancePayload payload, PrimaryLight p)
-{
-    payload.IncomingLight += p.Position;
-}
-
 void fakeUse(inout RadiancePayload payload, Material m)
 {
     payload.IncomingLight += m.Colour;
+}
+
+void fakeUse(inout RadiancePayload payload, LightSource m)
+{
+    payload.IncomingLight += m.Position;
+}
+
+void fakeUse(inout RadiancePayload payload, Triangle m)
+{
+    payload.IncomingLight += m.Power;
 }
 
 void fakeUse(inout RadiancePayload payload, RaytracingOutputData cat)

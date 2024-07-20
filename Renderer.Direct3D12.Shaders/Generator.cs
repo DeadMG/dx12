@@ -185,6 +185,10 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Float) return PrimitiveHlslType.Float;
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Int) return PrimitiveHlslType.Int;
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Bool) return PrimitiveHlslType.Bool;
+            if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.MatrixColumns && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Float)
+            {
+                return new MatrixHlslType { Columns = type.Description.ColumnCount, Rows = type.Description.RowCount, Underlying = PrimitiveHlslType.Float };
+            }
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Vector && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Float)
             {
                 return new VectorHlslType
@@ -223,7 +227,7 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
             args.Add("-Qembed_debug");
             args.Add("-Od");
 #endif
-
+            //args.Add("-Zpr"); // Row-major matrices
             args.Add($"-T {type}_{model}");
             if (entryPoint != null)
             {

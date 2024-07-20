@@ -70,15 +70,15 @@ namespace Application
                         },
                         new Material
                         {
-                            EmissionStrength = 1f,
+                            EmissionStrength = 0f,
                             EmissionColour = new RGB(1, 0.5f, 0),
-                            Colour = new RGB(1, 1, 1)
+                            Colour = new RGB(1, 0.5f, 0)
                         },
                         new Material
                         {
-                            EmissionStrength = 1f,
+                            EmissionStrength = 0f,
                             EmissionColour = new RGB(0, 0.5f, 1),
-                            Colour = new RGB(1, 1, 1)
+                            Colour = new RGB(0, 0.5f, 1)
                         },
                     ]
                 ),
@@ -95,7 +95,8 @@ namespace Application
                     {
                         Geometry = new SphereGeometry 
                         {
-                            Material = new Material { EmissionStrength = 1f, EmissionColour = RGB.From255(242, 241, 247), Colour = RGB.From255(153, 170, 240) } 
+                            Material = new Material { EmissionStrength = 1f, EmissionColour = RGB.From255(242, 241, 247), Colour = RGB.From255(153, 170, 240) },
+                            DistanceIndependentEmission = true,
                         },
                         WorldMatrix = Matrix4x4.CreateScale(20) * Matrix4x4.CreateTranslation(new Vector3(-40, 0, 40)),
                         Name = "Blue sun",

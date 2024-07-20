@@ -25,6 +25,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Renderer.Direct3D12.Shaders
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Data.Mesh", "Data.Mesh\Data.Mesh.csproj", "{4A9092D3-2C19-4856-A312-FC6F074E2A84}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{3069B8E1-A89C-4C16-AFFC-2C0DE651B0BB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -75,10 +77,10 @@ Global
 		{4A9092D3-2C19-4856-A312-FC6F074E2A84}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4A9092D3-2C19-4856-A312-FC6F074E2A84}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4A9092D3-2C19-4856-A312-FC6F074E2A84}.Release|Any CPU.Build.0 = Release|Any CPU
-		{2A0634A3-75BB-4401-8670-4CB5D3F0FC20}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2A0634A3-75BB-4401-8670-4CB5D3F0FC20}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2A0634A3-75BB-4401-8670-4CB5D3F0FC20}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2A0634A3-75BB-4401-8670-4CB5D3F0FC20}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3069B8E1-A89C-4C16-AFFC-2C0DE651B0BB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3069B8E1-A89C-4C16-AFFC-2C0DE651B0BB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3069B8E1-A89C-4C16-AFFC-2C0DE651B0BB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3069B8E1-A89C-4C16-AFFC-2C0DE651B0BB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

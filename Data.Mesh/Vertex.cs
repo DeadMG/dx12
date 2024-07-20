@@ -23,6 +23,9 @@ namespace Data.Mesh
                 normals[triangle.Vertices[0]] += weightedNormal;
                 normals[triangle.Vertices[1]] += weightedNormal;
                 normals[triangle.Vertices[2]] += weightedNormal;
+
+                var normalNormal = Vector3.Normalize(weightedNormal);
+
             }
 
             var offset = points.Aggregate(new Vector3(0,0,0), (a, b) => a + b) / points.Length;
