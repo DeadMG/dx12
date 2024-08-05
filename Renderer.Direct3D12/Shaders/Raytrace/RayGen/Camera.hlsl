@@ -50,7 +50,7 @@ void RayGen()
     // Initialize the ray payload
     
     RadiancePayload payload;
-    payload.IncomingLight = half3(0, 0, 0);
+    payload.IncomingLight = float3(0, 0, 0);
     payload.Filter = 1;
     payload.Depth = 1;
     

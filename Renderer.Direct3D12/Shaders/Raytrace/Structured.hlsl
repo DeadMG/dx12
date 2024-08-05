@@ -21,13 +21,13 @@ struct RaytracingOutputData
 
 struct Triangle
 {
-    half3 Normal;
-    half3 Colour;
-    half3 EmissionColour;
-    half EmissionStrength;
+    float3 Normal;
+    float3 Colour;
+    float3 EmissionColour;
+    float EmissionStrength;
     
-    half pad0;
-    half pad1;
+    float pad0;
+    float pad1;
 };
 
 void fakeUse(inout RadiancePayload payload, StarCategory cat)

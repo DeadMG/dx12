@@ -24,7 +24,7 @@ namespace Renderer.Direct3D12
             var name = mesh.Name;
 
             var vertices = mesh.Vertices.Select(x => new Shaders.Data.Vertex { Normal = x.Normal, Position = x.Position }).ToArray();
-            var triangles = mesh.Triangles.Select(x => new Shaders.Data.Triangle { Colour = mesh.Materials[x.MaterialIndex].Colour, EmissionColour = mesh.Materials[x.MaterialIndex].EmissionColour, EmissionStrength = (Half)mesh.Materials[x.MaterialIndex].EmissionStrength, Normal = Normal(mesh, x), pad0 = (Half)0, pad1 = (Half)0 }).ToArray();
+            var triangles = mesh.Triangles.Select(x => new Shaders.Data.Triangle { Colour = mesh.Materials[x.MaterialIndex].Colour, EmissionColour = mesh.Materials[x.MaterialIndex].EmissionColour, EmissionStrength = mesh.Materials[x.MaterialIndex].EmissionStrength, Normal = Normal(mesh, x), pad0 = 0, pad1 = 0 }).ToArray();
             var totalPower = mesh.Triangles.Sum(t => Power(mesh, t));
             var aabb = AABB.FromVertices(mesh.Vertices.Select(x => x.Position));
             var size = Math.Max(aabb.Start.X - aabb.End.X, Math.Max(aabb.Start.Y - aabb.End.Y, aabb.Start.Z - aabb.End.Z));

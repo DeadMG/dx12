@@ -3,7 +3,7 @@
 #include "Spherical.hlsl"
 #include "Constants.hlsl"
 
-half3 cosineHemisphere(inout uint seed, half3 normal)
+float3 cosineHemisphere(inout uint seed, float3 normal)
 {
     Spherical weighted;
     weighted.r = 1;

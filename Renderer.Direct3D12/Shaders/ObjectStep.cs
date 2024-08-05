@@ -55,7 +55,7 @@ namespace Renderer.Direct3D12.Shaders
 
         public void PrepareRaytracing(RaytracePreparation preparation)
         {
-            var light = preparation.Volume.Units.Select(u => LightSource(u, preparation.HeapAccumulator, preparation.List)).Concat(preparation.Volume.Map.Objects.Select(o => LightSource(o, preparation.HeapAccumulator, preparation.List))).Where(s => s.Power > (Half)0).First();
+            var light = preparation.Volume.Units.Select(u => LightSource(u, preparation.HeapAccumulator, preparation.List)).Concat(preparation.Volume.Map.Objects.Select(o => LightSource(o, preparation.HeapAccumulator, preparation.List))).Where(s => s.Power > 0).First();
 
             var unitInstances = preparation.Volume.Units
                 .Select(u => new InstanceDescription
@@ -115,8 +115,8 @@ namespace Renderer.Direct3D12.Shaders
             var parameters = (Vortice.Direct3D12.ID3D12Resource tlas) => new Data.SphereHitGroupParameters
             {
                 WorldPosition = pos,
-                Size = (Half)size,
-                EmissionStrength = (Half)sphere.Material.EmissionStrength,
+                Size = size,
+                EmissionStrength = sphere.Material.EmissionStrength,
                 Colour = sphere.Material.Colour,
                 EmissionColour = sphere.Material.EmissionColour,
             }.GetBytes();
@@ -169,9 +169,9 @@ namespace Renderer.Direct3D12.Shaders
             return new Data.LightSource
             {
                 DistanceIndependent = sphere.DistanceIndependentEmission,
-                Size = (Half)size,
+                Size = size,
                 Position = pos,
-                Power = (Half)sphere.Material.EmissionStrength,
+                Power = sphere.Material.EmissionStrength,
                 TrianglesIndex = 0,
                 VerticesIndex = 0,
                 WorldMatrix = Matrix4x4.Transpose(worldMatrix)
@@ -185,9 +185,9 @@ namespace Renderer.Direct3D12.Shaders
             return new Data.LightSource
             {
                 DistanceIndependent = false,
-                Size = (Half)meshData.Size,
+                Size = meshData.Size,
                 Position = pos,
-                Power = (Half)meshData.Power,
+                Power = meshData.Power,
                 TrianglesIndex = heapAccumulator.AddStructuredBuffer(meshData.TriangleBuffer, meshData.TriangleSRV),
                 WorldMatrix = Matrix4x4.Transpose(worldMatrix),
                 VerticesIndex = 0

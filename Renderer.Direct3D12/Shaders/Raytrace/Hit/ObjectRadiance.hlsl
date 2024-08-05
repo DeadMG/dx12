@@ -28,26 +28,26 @@ uint bufferIndex(uint2 index)
     return x + (dims.x * y);
 }
 
-half3 alignWith(half3 normal, half3 direction)
+float3 alignWith(float3 normal, float3 direction)
 {
     return direction * sign(dot(normal, direction));
 }
 
-half3 normalMul(half3 objectNormal, float4x4 mat)
+float3 normalMul(float3 objectNormal, float4x4 mat)
 {
     float4 result = mul(float4(objectNormal, 0), mat);
     return normalize(result.xyz);
 }
 
-half3 monteCarlo(RaytracingAccelerationStructure SceneBVH, uint depth, half3 normal, half3 startPosition, inout uint seed)
+float3 monteCarlo(RaytracingAccelerationStructure SceneBVH, uint depth, float3 normal, float3 startPosition, inout uint seed)
 {
     if (depth >= Settings.MaxBounces)
-        return half3(0, 0, 0); // We can't afford to sample this further
+        return float3(0, 0, 0); // We can't afford to sample this further
     
     SampledLight lights[numLights];
     bool anyLights = prepareLights(lights, Settings.Light, seed, startPosition, normal);
     
-    half3 incomingLight = half3(0, 0, 0);
+    float3 incomingLight = float3(0, 0, 0);
     
     // Due to the low likelihood of BRDF samples hitting, we allocate 1 sample there, and 3 for NEE.
     // Unless there are no lights in which case all 4 samples goes to BRDF.
@@ -103,12 +103,12 @@ void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes 
     
     uint2 index = DispatchRaysIndex().xy;
     
-    half3 startPosition = WorldRayOrigin() + (RayTCurrent() * WorldRayDirection());
-    half3 normal = alignWith(-WorldRayDirection(), normalMul(t.Normal, Settings.WorldMatrix));
+    float3 startPosition = WorldRayOrigin() + (RayTCurrent() * WorldRayDirection());
+    float3 normal = alignWith(-WorldRayDirection(), normalMul(t.Normal, Settings.WorldMatrix));
     
     uint seed = Settings.Seed * pow2(index.x + 1u) * pow2(index.y + 1u);
     
-    half3 incomingLight = monteCarlo(ResourceDescriptorHeap[Settings.TLASIndex], GetDepth(payload), normal, startPosition, seed);
+    float3 incomingLight = monteCarlo(ResourceDescriptorHeap[Settings.TLASIndex], GetDepth(payload), normal, startPosition, seed);
     
-    payload.IncomingLight = min(payload.IncomingLight + (incomingLight * t.Colour) + (t.EmissionStrength * t.EmissionColour), half3(1, 1, 1));
+    payload.IncomingLight = min(payload.IncomingLight + (incomingLight * t.Colour) + (t.EmissionStrength * t.EmissionColour), float3(1, 1, 1));
 }

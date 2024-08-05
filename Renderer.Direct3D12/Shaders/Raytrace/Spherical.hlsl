@@ -8,12 +8,12 @@
 // Y is affected by elevation only.
 struct Spherical
 {
-    half r;
-    half elevation;
-    half azimuth;
+    float r;
+    float elevation;
+    float azimuth;
 };
 
-Spherical randomSpherical(half r, inout uint seed)
+Spherical randomSpherical(float r, inout uint seed)
 {
     Spherical sphere;
     sphere.r = r;    
@@ -22,9 +22,9 @@ Spherical randomSpherical(half r, inout uint seed)
     return sphere;    
 }
 
-half3 sphericalToCartesian(Spherical sphere)
+float3 sphericalToCartesian(Spherical sphere)
 {
-    half3 coords = half3(
+    float3 coords = float3(
         cos(sphere.elevation) * cos(sphere.azimuth),
         sin(sphere.elevation),
         cos(sphere.elevation) * sin(sphere.azimuth));
@@ -32,7 +32,7 @@ half3 sphericalToCartesian(Spherical sphere)
     return normalize(coords) * sphere.r;
 }
 
-Spherical cartesianToSpherical(half3 cartesian)
+Spherical cartesianToSpherical(float3 cartesian)
 {
     Spherical ret;
     ret.r = length(cartesian);
@@ -41,31 +41,31 @@ Spherical cartesianToSpherical(half3 cartesian)
     return ret;
 }
 
-half3x3 AngleAxis3x3(half angle, half3 axis)
+float3x3 AngleAxis3x3(float angle, float3 axis)
 {
-    half c, s;
+    float c, s;
     sincos(angle, s, c);
 
-    half t = 1 - c;
-    half x = axis.x;
-    half y = axis.y;
-    half z = axis.z;
+    float t = 1 - c;
+    float x = axis.x;
+    float y = axis.y;
+    float z = axis.z;
 
-    return half3x3(
+    return float3x3(
         t * x * x + c, t * x * y - s * z, t * x * z + s * y,
         t * x * y + s * z, t * y * y + c, t * y * z - s * x,
         t * x * z - s * y, t * y * z + s * x, t * z * z + c
     );
 }
 
-half3 rotateNormal(half3 normal, Spherical rotation)
+float3 rotateNormal(float3 normal, Spherical rotation)
 {
     Spherical normalSphere = cartesianToSpherical(normal);
     normalSphere.elevation += (PI / 2);
-    half3 axis = sphericalToCartesian(normalSphere);
+    float3 axis = sphericalToCartesian(normalSphere);
     
-    half3 elevated = mul(normal, AngleAxis3x3(rotation.elevation, axis));
-    half3 rotated = mul(elevated, AngleAxis3x3(rotation.azimuth, normal));
+    float3 elevated = mul(normal, AngleAxis3x3(rotation.elevation, axis));
+    float3 rotated = mul(elevated, AngleAxis3x3(rotation.azimuth, normal));
     
     return rotated;
 }

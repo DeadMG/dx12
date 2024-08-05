@@ -7,19 +7,19 @@ static const int numLights = 1;
 
 struct LightSource
 {
-    half Power;
+    float Power;
     uint VerticesIndex;
     uint TrianglesIndex;
     float4x4 WorldMatrix;
-    half3 Position;
-    half Size;
+    float3 Position;
+    float Size;
     bool DistanceIndependent;
 };
 
 struct SampledLight
 {
-    half3 direction;
-    half power;
+    float3 direction;
+    float power;
 };
 
 void addLight(SampledLight l, inout SampledLight lights[numLights])
@@ -67,7 +67,7 @@ bool normalizePower(inout SampledLight lights[numLights])
     return true;
 }
 
-float distanceFactor(half3 origin, half3 position, bool distanceIndependent)
+float distanceFactor(float3 origin, float3 position, bool distanceIndependent)
 {
     float3 direction = position - origin;
     float l = length(direction);
@@ -88,7 +88,7 @@ SampledLight zeroLight()
     return light;
 }
 
-float3 partialSphereSample(inout uint seed, half3 spherePosition, half size, half3 normal, half3 origin)
+float3 partialSphereSample(inout uint seed, float3 spherePosition, float size, float3 normal, float3 origin)
 {
     // Perform the plane intersection
     float d = dot(origin, normal);
@@ -108,7 +108,7 @@ float3 partialSphereSample(inout uint seed, half3 spherePosition, half size, hal
     return spherePosition + sphericalToCartesian(random);
 }
 
-SampledLight sampleSphereLight(inout uint seed, half3 origin, half3 normal, half power, half3 position, half size, bool distanceIndependent)
+SampledLight sampleSphereLight(inout uint seed, float3 origin, float3 normal, float power, float3 position, float size, bool distanceIndependent)
 {
     float current = power / distanceFactor(origin, position, distanceIndependent);
     
@@ -152,7 +152,7 @@ SampledLight sampleSphereLight(inout uint seed, half3 origin, half3 normal, half
 }
 
 // True if there's at least one valid light
-bool prepareLights(inout SampledLight lights[numLights], LightSource light, inout uint seed, half3 origin, half3 normal)
+bool prepareLights(inout SampledLight lights[numLights], LightSource light, inout uint seed, float3 origin, float3 normal)
 {
     [unroll]
     for (int i = 0; i < numLights; i++)
