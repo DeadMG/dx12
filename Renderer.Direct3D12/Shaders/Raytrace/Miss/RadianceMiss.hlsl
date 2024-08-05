@@ -101,7 +101,7 @@ float3 colour(float distribution)
 void RadianceMiss(inout RadiancePayload payload)
 {
     // Direct camera ray
-    if (payload.Depth == 1)
+    if (GetDepth(payload) == 1)
     {
         float3 direction = normalize(WorldRayDirection());
         
@@ -112,8 +112,7 @@ void RadianceMiss(inout RadiancePayload payload)
         float brightness = spotNoise(spherical, Parameters.NoiseScale, Parameters.NoiseCutoff);
         float distribution = spotNoise(spherical, Parameters.TemperatureScale, 0);
         
-        payload.IncomingLight = brightness * colour(distribution);
-        payload.Filter = false;
+        StopFilter(payload, brightness * colour(distribution));
     }
     else
     {

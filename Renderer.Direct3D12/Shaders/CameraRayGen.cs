@@ -1,6 +1,7 @@
 ﻿using Data.Space;
 using Simulation.Physics;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using Util;
 
 namespace Renderer.Direct3D12.Shaders
@@ -12,7 +13,7 @@ namespace Renderer.Direct3D12.Shaders
         private readonly Vortice.DXGI.Format renderTargetFormat;
         private readonly Raytrace.RayGen.Filter filterShader;
         private readonly Raytrace.RayGen.Camera cameraShader;
-       
+
         private RaytracingScreenResources screenResources;
         private ScreenSize screenSize;
 
@@ -24,7 +25,7 @@ namespace Renderer.Direct3D12.Shaders
             this.renderTargetFormat = renderTargetFormat;
 
             this.screenSize = screenSize;
-            this.screenResources = new RaytracingScreenResources(device, screenSize, renderTargetFormat);
+            this.screenResources = new RaytracingScreenResources(device, screenSize, renderTargetFormat); 
         }
 
         public Vortice.Direct3D12.StateSubObject[] CreateStateObjects() => [];

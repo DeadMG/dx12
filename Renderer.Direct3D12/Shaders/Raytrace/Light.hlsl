@@ -1,13 +1,25 @@
 #pragma once
 
 #include "Spherical.hlsl"
+#include "Structured.hlsl"
 
-static const int numLights = 5;
+static const int numLights = 1;
+
+struct LightSource
+{
+    half Power;
+    uint VerticesIndex;
+    uint TrianglesIndex;
+    float4x4 WorldMatrix;
+    half3 Position;
+    half Size;
+    bool DistanceIndependent;
+};
 
 struct SampledLight
 {
-    float3 direction;
-    float power;
+    half3 direction;
+    half power;
 };
 
 void addLight(SampledLight l, inout SampledLight lights[numLights])
@@ -33,15 +45,29 @@ void addLight(SampledLight l, inout SampledLight lights[numLights])
     lights[numLights - 1] = l;
 }
 
-void initialLights(inout SampledLight lights[numLights], float3 bdrf)
-{    
-    SampledLight light;
-    light.direction = bdrf;
-    light.power = 0.1;
-    lights[numLights - 1] = light;
+bool normalizePower(inout SampledLight lights[numLights])
+{
+    float totalPower = 0;
+    
+    [unroll]
+    for (uint i = 0; i < numLights; i++)
+    {
+        totalPower += lights[i].power;
+    }
+    
+    if (totalPower == 0)
+        return false;
+    
+    [unroll]
+    for (uint i = 0; i < numLights; i++)
+    {
+        lights[i].power /= totalPower;
+    }
+    
+    return true;
 }
 
-float distanceFactor(float3 origin, float3 position, bool distanceIndependent)
+float distanceFactor(half3 origin, half3 position, bool distanceIndependent)
 {
     float3 direction = position - origin;
     float l = length(direction);
@@ -54,17 +80,6 @@ float distanceFactor(float3 origin, float3 position, bool distanceIndependent)
     return 1;
 }
 
-float totalPower(inout SampledLight lights[numLights])
-{    
-    float power = 0;
-    for (uint i = 0; i < numLights; i++)
-    {
-        power += lights[i].power;
-    }
-    
-    return power;
-}
-
 SampledLight zeroLight()
 {
     SampledLight light;
@@ -73,7 +88,7 @@ SampledLight zeroLight()
     return light;
 }
 
-float3 partialSphereSample(inout uint seed, float3 spherePosition, float size, float3 normal, float3 origin)
+float3 partialSphereSample(inout uint seed, half3 spherePosition, half size, half3 normal, half3 origin)
 {
     // Perform the plane intersection
     float d = dot(origin, normal);
@@ -93,7 +108,7 @@ float3 partialSphereSample(inout uint seed, float3 spherePosition, float size, f
     return spherePosition + sphericalToCartesian(random);
 }
 
-SampledLight sampleSphereLight(inout uint seed, float3 origin, float3 normal, float power, float3 position, float size, bool distanceIndependent)
+SampledLight sampleSphereLight(inout uint seed, half3 origin, half3 normal, half power, half3 position, half size, bool distanceIndependent)
 {
     float current = power / distanceFactor(origin, position, distanceIndependent);
     
@@ -134,4 +149,39 @@ SampledLight sampleSphereLight(inout uint seed, float3 origin, float3 normal, fl
     light.power = current;
     light.direction = normalize(partialSphereSample(seed, position, size, normal, origin) - origin);
     return light;
+}
+
+// True if there's at least one valid light
+bool prepareLights(inout SampledLight lights[numLights], LightSource light, inout uint seed, half3 origin, half3 normal)
+{
+    [unroll]
+    for (int i = 0; i < numLights; i++)
+    {
+        lights[i] = zeroLight();
+    }
+    
+    addLight(sampleSphereLight(seed, origin, normal, light.Power, light.Position, light.Size, light.DistanceIndependent), lights);
+    
+    return normalizePower(lights);
+}
+
+SampledLight sampleLights(inout SampledLight lights[numLights], inout uint seed)
+{
+    float targetPower = uniformRand(seed);
+    float powerSoFar = 0;
+    
+    [unroll]
+    for (uint i = 0; i < numLights; i++)
+    {
+        SampledLight light = lights[i];
+        
+        powerSoFar += light.power;
+        
+        if (powerSoFar > targetPower)
+        {
+            return light;
+        }
+    }
+    
+    return lights[numLights - 1];
 }

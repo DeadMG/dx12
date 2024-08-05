@@ -6,27 +6,27 @@ ConstantBuffer<SphereHitGroupParameters> Sphere : register(b0);
 [shader("intersection")]
 void SphereIntersection()
 {
-    float3 direction = WorldRayDirection();
-    float3 origin = WorldRayOrigin();
+    half3 direction = WorldRayDirection();
+    half3 origin = WorldRayOrigin();
         
-    float3 L = Sphere.WorldPosition - origin;
-    float tca = dot(L, direction);
-    float d2 = dot(L, L) - (tca * tca);
+    half3 L = Sphere.WorldPosition - origin;
+    half tca = dot(L, direction);
+    half d2 = dot(L, L) - (tca * tca);
     
     if (d2 > Sphere.Size * Sphere.Size)
         return;
     
-    float thc = sqrt((Sphere.Size * Sphere.Size) - d2);
-    float t0 = tca + thc;
-    float t1 = tca - thc;
+    half thc = sqrt((Sphere.Size * Sphere.Size) - d2);
+    half t0 = tca + thc;
+    half t1 = tca - thc;
     
-    float tMin = min(t0, t1);
-    float tMax = max(t0, t1);
+    half tMin = min(t0, t1);
+    half tMax = max(t0, t1);
     
     if (tMax < 0)
         return;
     
-    float t = tMin < 0 ? tMax : tMin;
+    half t = tMin < 0 ? tMax : tMin;
     SphereAttributes a;
     
     ReportHit(t, 0, a);

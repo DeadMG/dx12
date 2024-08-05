@@ -6,11 +6,11 @@ namespace Platform.Windows
 {
     public class WindowsPlatform : IPlatform
     {
-        public async Task<IRenderer> CreateRenderer(IWindow window)
+        public async Task<IRenderer> CreateRenderer(IWindow window, Options options)
         {
             if (window is Window w)
             {
-                return new Direct3D12Renderer(await w.HWND, await w.GetSize());
+                return new Direct3D12Renderer(await w.HWND, await w.GetSize(), options);
             }
 
             throw new InvalidOperationException("Window is not a Windows window");

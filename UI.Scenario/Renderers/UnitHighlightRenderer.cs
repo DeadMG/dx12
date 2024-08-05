@@ -17,13 +17,13 @@ namespace UI.Renderers
 
             var thickness = Math.Max((width + height) / 30, 1);
 
-            foreach (var vertex in unit.Blueprint.Mesh.Vertices)
-            {
-                var start = Project.Screen(Vector3.Transform(vertex.Position, unit.WorldMatrix), camera.ViewProjection, camera.ScreenSize);
-                var end = Project.Screen(Vector3.Transform(vertex.Position + vertex.Normal, unit.WorldMatrix), camera.ViewProjection, camera.ScreenSize);
-
-                draw.DrawLine(new ScreenLine { Start = start, End = end }, brush);
-            }
+            //foreach (var vertex in unit.Blueprint.Mesh.Vertices)
+            //{
+            //    var start = Project.Screen(Vector3.Transform(vertex.Position, unit.WorldMatrix), camera.ViewProjection, camera.ScreenSize);
+            //    var end = Project.Screen(Vector3.Transform(vertex.Position + vertex.Normal, unit.WorldMatrix), camera.ViewProjection, camera.ScreenSize);
+            //
+            //    draw.DrawLine(new ScreenLine { Start = start, End = end }, brush);
+            //}
 
             draw.FillGeometry(
                 new ScreenPosition[]

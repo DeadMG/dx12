@@ -137,7 +137,20 @@ namespace Application
             var listener = new WindowListener(controlScheme);
             window.Listener = listener;
 
-            using (var renderer = await platform.CreateRenderer(window))
+            var standardOptions = new Options
+            {
+                D3D11on12 = true,
+                D3DBreak = true,
+                D3DDebugLayer = true,
+                DXGIBreak = true,
+                PIX = true,
+            };
+
+            var nSightOptions = new Options
+            {
+            };
+
+            using (var renderer = await platform.CreateRenderer(window, standardOptions))
             using (var cts = new CancellationTokenSource())
             {
                 var renderLoop = CoreLoop(renderer, listener, scenario, uiState, controlScheme, cts.Token);

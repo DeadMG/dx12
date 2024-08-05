@@ -1,5 +1,7 @@
 #include "../Ray.hlsl"
 #include "../Structured.hlsl"
+#include "../Power.hlsl"
+#include "../Random.hlsl"
 
 struct CameraMatrices
 {
@@ -8,7 +10,7 @@ struct CameraMatrices
     float3 WorldBottomLeft;
     
     float3 Origin;
-    
+        
     uint DataIndex;
     uint OutputIndex;
     uint PreviousIndex;
@@ -44,14 +46,13 @@ void RayGen()
     float3 down = (Camera.WorldBottomLeft - Camera.WorldTopLeft) / dims.y;
     
     float3 target = Camera.WorldTopLeft + (top * pixelCoordinate.x) + (down * pixelCoordinate.y);    
-    
-    float3 tracedColour = float3(0, 0, 0);
-    
+        
     // Initialize the ray payload
+    
     RadiancePayload payload;
-    payload.IncomingLight = float3(0, 0, 0);
+    payload.IncomingLight = half3(0, 0, 0);
+    payload.Filter = 1;
     payload.Depth = 1;
-    payload.Filter = true;
     
     RayDesc ray;
     ray.Origin = Camera.Origin;
@@ -71,7 +72,7 @@ void RayGen()
     
     float3 thisFrame = lerp(payload.IncomingLight, previousFilter[launchIndex].rgb, float3(0.7, 0.7, 0.7));
     RaytracingOutputData outputData;
-    outputData.Filter = payload.Filter;
+    outputData.Filter = Filter(payload);
     
     int dataIndex = index(launchIndex, DispatchRaysDimensions().x);
     data[dataIndex] = outputData;

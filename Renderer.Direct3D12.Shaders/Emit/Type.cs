@@ -68,18 +68,32 @@ namespace Renderer.Direct3D12.Shaders.Data {{
             if (type == PrimitiveHlslType.Uint) return "uint";
             if (type == PrimitiveHlslType.Int) return "int";
             if (type == PrimitiveHlslType.Bool) return "bool";
+            if (type == PrimitiveHlslType.Half) return "Half";
             if (type is MatrixHlslType matrix)
             {
                 return $"Matrix{matrix.Rows}x{matrix.Columns}";
             }
-            if (type is VectorHlslType vector && vector.Underlying == PrimitiveHlslType.Float)
+            if (type is VectorHlslType vector)
             {
-                if (memberName.Contains("colour", StringComparison.InvariantCultureIgnoreCase))
+                if (vector.Underlying == PrimitiveHlslType.Float)
                 {
-                    return "RGB";
+                    if (vector.Elements == 3 && memberName.Contains("colour", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        return "RGB";
+                    }
+
+                    return $"Vector{vector.Elements}";
                 }
 
-                return $"Vector{vector.Elements}";
+                if (vector.Underlying == PrimitiveHlslType.Half)
+                {
+                    if (vector.Elements == 3 && memberName.Contains("colour", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        return "HalfRGB";
+                    }
+
+                    return $"HalfVector{vector.Elements}";
+                }
             }
 
             throw new InvalidOperationException($"Could not convert HLSL type {type.Name}");

@@ -2,19 +2,17 @@
 #include "../Random.hlsl"
 #include "../Structured.hlsl"
 #include "../Light.hlsl"
+#include "../Sampling.hlsl"
+#include "../Power.hlsl"
 
 struct ObjectRadianceParameters
 {
-    uint Seed;
     uint MaxBounces;
-    uint MaxSamples;
     float AmbientLight;
     float4x4 WorldMatrix;
-    
-    uint LightsIndex;
-    uint VerticesIndex;
+    LightSource Light;
+    uint Seed;
     uint TrianglesIndex;
-    uint MaterialsIndex;
     uint TLASIndex;
 };
 
@@ -30,150 +28,87 @@ uint bufferIndex(uint2 index)
     return x + (dims.x * y);
 }
 
-float4x4 WorldMatrix()
-{
-    float3x4 existing = ObjectToWorld3x4();
-    return float4x4(existing._m00, existing._m01, existing._m02, existing._m03,
-        existing._m10, existing._m11, existing._m12, existing._m13,
-        existing._m20, existing._m21, existing._m22, existing._m23,
-        0, 0, 0, 1);
-}
-
-float3 alignWith(float3 normal, float3 direction)
+half3 alignWith(half3 normal, half3 direction)
 {
     return direction * sign(dot(normal, direction));
 }
 
-float3 normalMul(float3 objectNormal, float4x4 mat)
+half3 normalMul(half3 objectNormal, float4x4 mat)
 {
     float4 result = mul(float4(objectNormal, 0), mat);
     return normalize(result.xyz);
 }
 
-float3 faceNormal(Triangle t, float4x4 worldMatrix)
+half3 monteCarlo(RaytracingAccelerationStructure SceneBVH, uint depth, half3 normal, half3 startPosition, inout uint seed)
 {
-    StructuredBuffer<Vertex> Vertices = ResourceDescriptorHeap[Settings.VerticesIndex];
-    
-    float3 a = Vertices[t.VertexIndex1].Position;
-    float3 b = Vertices[t.VertexIndex2].Position;
-    float3 c = Vertices[t.VertexIndex3].Position;
-    
-    return normalMul(normalize(cross(b - a, c - a)), worldMatrix);
-}
-
-float3 rayDirection(float3 origin, float3 normal, inout uint seed)
-{
-    StructuredBuffer<LightSource> Lights = ResourceDescriptorHeap[Settings.LightsIndex];
-    
-    uint numStructs;
-    uint stride;
-    Lights.GetDimensions(numStructs, stride);
-    
-    float3 defaultDirection = normalize(normal + sphericalToCartesian(randomSpherical(1, seed)));
+    if (depth >= Settings.MaxBounces)
+        return half3(0, 0, 0); // We can't afford to sample this further
     
     SampledLight lights[numLights];
-    initialLights(lights, defaultDirection);
+    bool anyLights = prepareLights(lights, Settings.Light, seed, startPosition, normal);
     
-    for (uint i = 0; i < numStructs; i++)
+    half3 incomingLight = half3(0, 0, 0);
+    
+    // Due to the low likelihood of BRDF samples hitting, we allocate 1 sample there, and 3 for NEE.
+    // Unless there are no lights in which case all 4 samples goes to BRDF.
+    int16_t brdfSamples = 1;
+    int16_t neeSamples = 3;
+    
+    if (!anyLights)
     {
-        LightSource light = Lights[i];
-        
-        if (light.VerticesIndex == 0)
-        {
-            addLight(sampleSphereLight(seed, origin, normal, light.Power, light.Position, light.Size, light.DistanceIndependent), lights);
-        }        
+        neeSamples = 0;
     }
     
-    float targetPower = uniformRand(seed) * totalPower(lights);
-    float powerSoFar = 0;
+    int16_t totalSamples = brdfSamples + neeSamples;
     
-    for (uint i = 0; i < numLights; i++)
+    for (int16_t i = 0; i < totalSamples; ++i)
     {
-        SampledLight light = lights[i];
+        RayDesc ray;
+        ray.Origin = startPosition;
+        ray.Direction = i < brdfSamples ? cosineHemisphere(seed, normal) : sampleLights(lights, seed).direction;
+        ray.TMin = 0.01;
+        ray.TMax = 10000;
         
-        float power = light.power;
-        if (power <= 0)
-            continue;
-        
-        powerSoFar += power;
-        
-        if (powerSoFar > targetPower)
-        {
-            return light.direction;
-        }
+        RadiancePayload newPayload;
+        IncreaseDepth(newPayload, depth);
+    
+        TraceRay(
+            SceneBVH,
+            0,
+            0xFF,
+            0,
+            0,
+            0,
+            ray,
+            newPayload);
+            
+        incomingLight += newPayload.IncomingLight;
     }
     
-    return defaultDirection;
+    // This is not a valid implementation of MIS. To be fixed.
+    return incomingLight / totalSamples;
 }
 
-float3 trianglePosition(Triangle t, float2 barry, float4x4 worldMatrix)
+Triangle LoadTriangle(int index)
 {
-    StructuredBuffer<Vertex> Vertices = ResourceDescriptorHeap[Settings.VerticesIndex];
+    StructuredBuffer<Triangle> Triangles = ResourceDescriptorHeap[Settings.TrianglesIndex];
     
-    float3 a = Vertices[t.VertexIndex1].Position;
-    float3 b = Vertices[t.VertexIndex2].Position;
-    float3 c = Vertices[t.VertexIndex3].Position;
-    
-    float3 position = barrypolate(barycentric(barry), a, b, c);    
-    
-    return mul(float4(position, 1), worldMatrix).xyz;
+    return Triangles[index];
 }
 
 [shader("closesthit")]
 void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes attrib)
-{
-    StructuredBuffer<Triangle> Triangles = ResourceDescriptorHeap[Settings.TrianglesIndex];    
-    StructuredBuffer<Material> Materials = ResourceDescriptorHeap[Settings.MaterialsIndex];
-    RaytracingAccelerationStructure SceneBVH = ResourceDescriptorHeap[Settings.TLASIndex];
-    
-    Triangle t = Triangles[PrimitiveIndex()];         
+{   
+    Triangle t = LoadTriangle(PrimitiveIndex());
     
     uint2 index = DispatchRaysIndex().xy;
     
-    float3 face = faceNormal(t, Settings.WorldMatrix);
-    float3 trianglePos = trianglePosition(t, attrib.bary, Settings.WorldMatrix);
-    float3 startPosition = WorldRayOrigin() + (RayTCurrent() * WorldRayDirection());
-    float3 normal = alignWith(-WorldRayDirection(), face);
+    half3 startPosition = WorldRayOrigin() + (RayTCurrent() * WorldRayDirection());
+    half3 normal = alignWith(-WorldRayDirection(), normalMul(t.Normal, Settings.WorldMatrix));
     
-    uint seed = Settings.Seed * (index.x + 1) * (index.y + 1);
+    uint seed = Settings.Seed * pow2(index.x + 1u) * pow2(index.y + 1u);
     
-    Material m = Materials[t.MaterialIndex];       
+    half3 incomingLight = monteCarlo(ResourceDescriptorHeap[Settings.TLASIndex], GetDepth(payload), normal, startPosition, seed);
     
-    float3 incomingLight = float3(0, 0, 0);
-    
-    int samples = payload.Depth == 1 ? Settings.MaxSamples : 1;
-    
-    if (payload.Depth < Settings.MaxBounces)
-    {
-        for (int i = 0; i < samples; ++i)
-        {        
-            RadiancePayload newPayload;
-            newPayload.IncomingLight = float3(0, 0, 0);
-            newPayload.Depth = payload.Depth + 1;
-        
-            float3 direction = rayDirection(startPosition, normal, seed);
-        
-            RayDesc ray;
-            ray.Origin = startPosition;
-            ray.Direction = direction;
-            ray.TMin = 0.01;
-            ray.TMax = 10000;
-    
-            TraceRay(
-                SceneBVH,
-                0,
-                0xFF,
-                0,
-                0,
-                0,
-                ray,
-                newPayload);
-            
-            incomingLight += newPayload.IncomingLight;
-        }
-    }
-    
-    incomingLight = (incomingLight / samples);
-    
-    payload.IncomingLight += min((incomingLight * m.Colour) + (m.EmissionStrength * m.EmissionColour), float3(1, 1, 1));
+    payload.IncomingLight = min(payload.IncomingLight + (incomingLight * t.Colour) + (t.EmissionStrength * t.EmissionColour), half3(1, 1, 1));
 }

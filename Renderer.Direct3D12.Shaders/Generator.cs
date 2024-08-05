@@ -185,6 +185,8 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Float) return PrimitiveHlslType.Float;
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Int) return PrimitiveHlslType.Int;
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Bool) return PrimitiveHlslType.Bool;
+            if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Float16) return PrimitiveHlslType.Half;
+
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.MatrixColumns && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Float)
             {
                 return new MatrixHlslType { Columns = type.Description.ColumnCount, Rows = type.Description.RowCount, Underlying = PrimitiveHlslType.Float };
@@ -194,6 +196,14 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
                 return new VectorHlslType
                 {
                     Underlying = PrimitiveHlslType.Float,
+                    Elements = type.Description.ColumnCount
+                };
+            }
+            if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Vector && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Float16)
+            {
+                return new VectorHlslType
+                {
+                    Underlying = PrimitiveHlslType.Half,
                     Elements = type.Description.ColumnCount
                 };
             }
@@ -207,7 +217,7 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
                     Members = Enumerable.Range(0, type.Description.MemberCount)
                         .Select(x => new StructMember
                         {
-                            Type = Map(type.GetMemberTypeByIndex(x), null),
+                            Type = Map(type.GetMemberTypeByIndex(x), MemberSize(type, size.Value, x)),
                             Name = type.GetMemberTypeName(x),
                             Offset = type.GetMemberTypeByIndex(x).Description.Offset,
                         })
@@ -216,7 +226,16 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
             }
 
             throw new InvalidOperationException($"Could not load type {type.Description.Name}");
+        }
 
+        private int MemberSize(Vortice.Direct3D12.Shader.ID3D12ShaderReflectionType type, int parentSize, int memberIndex)
+        {
+            if (type.Description.MemberCount == memberIndex + 1)
+            {
+                return parentSize - type.GetMemberTypeByIndex(memberIndex).Description.Offset;
+            }
+
+            return type.GetMemberTypeByIndex(memberIndex + 1).Description.Offset - type.GetMemberTypeByIndex(memberIndex).Description.Offset;
         }
 
         private string[] Arguments(string type, string filename, string entryPoint)
@@ -225,7 +244,7 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
 #if DEBUG
             args.Add("-Zi");
             args.Add("-Qembed_debug");
-            args.Add("-Od");
+//            args.Add("-Od");
 #endif
             //args.Add("-Zpr"); // Row-major matrices
             args.Add($"-T {type}_{model}");
@@ -233,6 +252,7 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
             {
                 args.Add($"-E {entryPoint}");
             }
+            args.Add("-enable-16bit-types");
 
             return args.ToArray();
         }

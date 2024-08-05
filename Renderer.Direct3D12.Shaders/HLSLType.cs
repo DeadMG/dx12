@@ -13,6 +13,7 @@
         public static readonly PrimitiveHlslType Float = new PrimitiveHlslType { Name = "float" };
         public static readonly PrimitiveHlslType Int = new PrimitiveHlslType { Name = "int" };
         public static readonly PrimitiveHlslType Bool = new PrimitiveHlslType { Name = "bool" };
+        public static readonly PrimitiveHlslType Half = new PrimitiveHlslType { Name = "half" };
     }
 
     public class StructHlslType : IHlslType

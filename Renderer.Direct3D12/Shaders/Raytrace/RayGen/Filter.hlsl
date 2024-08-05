@@ -1,4 +1,5 @@
 #include "../Structured.hlsl"
+#include "../Power.hlsl"
 
 static const int sigmaD = 2;
 static const int sigmaR = 1;
@@ -17,8 +18,8 @@ ConstantBuffer<FilterParameters> Parameters : register(b0);
 
 float w(int2 target, float originalIntensity, int2 kernel, float newIntensity)
 {
-    float first = (pow(target.x - kernel.x, 2) + pow(target.y - kernel.y, 2)) / (2 * pow(sigmaD, 2));
-    float second = pow(originalIntensity - newIntensity, 2) / (2 * pow(sigmaR, 2));
+    float first = (pow2(target.x - kernel.x) + pow2(target.y - kernel.y)) / (2 * pow2(sigmaD));
+    float second = pow2(originalIntensity - newIntensity) / (2 * pow2(sigmaR));
     
     return exp(-first - second);
 }

@@ -4,6 +4,6 @@
     {
         public Task OneTimeInitialisation();
         public IWindow CreateWindow();
-        public Task<IRenderer> CreateRenderer(IWindow window);
+        public Task<IRenderer> CreateRenderer(IWindow window, Options options);
     }
 }

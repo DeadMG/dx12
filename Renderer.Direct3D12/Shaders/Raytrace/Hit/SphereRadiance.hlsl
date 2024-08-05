@@ -6,7 +6,7 @@ ConstantBuffer<SphereHitGroupParameters> Sphere : register(b0);
 [shader("closesthit")]
 void SphereRadianceClosestHit(inout RadiancePayload payload, SphereAttributes attrib)
 {
-    if (payload.Depth == 1)
+    if (GetDepth(payload) == 1)
     {
         payload.IncomingLight = Sphere.Colour;
     }

@@ -7,7 +7,7 @@ namespace Renderer.Direct3D12
     internal class RaytracingVolumeRenderer : IDisposable
     {
         private readonly DisposeTracker disposeTracker = new DisposeTracker();
-        private const int maxRays = 2;
+        private const int maxRays = 3;
 
         private readonly CommandListPool directListPool;
         private readonly Vortice.Direct3D12.ID3D12Device5 device;
@@ -46,11 +46,11 @@ namespace Renderer.Direct3D12
             missShaderStep = disposeTracker.Track(new Shaders.MissShaders(mapResourceCache, radianceMiss));
             rayGenStep = disposeTracker.Track(new Shaders.CameraRayGen(device, screenSize, renderTargetFormat, filterShader, cameraShader));
 
-            objectStep = disposeTracker.Track(new Shaders.ObjectStep(meshResourceCache, mapResourceCache, maxRays, objectRadiance, sphereRadiance, sphereIntersection));
+            objectStep = disposeTracker.Track(new Shaders.ObjectStep(meshResourceCache, maxRays, objectRadiance, sphereRadiance, sphereIntersection));
 
             emptyGlobalSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(Vortice.Direct3D12.RootSignatureFlags.ConstantBufferViewShaderResourceViewUnorderedAccessViewHeapDirectlyIndexed))).Name("Empty global signature");
 
-            var shaderConfigSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.RaytracingShaderConfig { MaxAttributeSizeInBytes = 8, MaxPayloadSizeInBytes = 32 });
+            var shaderConfigSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.RaytracingShaderConfig { MaxAttributeSizeInBytes = 8, MaxPayloadSizeInBytes = 16 });
             var globalSignatureSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.GlobalRootSignature(emptyGlobalSignature));
 
             Vortice.Direct3D12.StateSubObject[] fixedSubobjects = [
