@@ -1,15 +1,19 @@
-<Project>  
-  <Target Name="codegen" BeforeTargets="BeforeCompile" AfterTargets="ResolveProjectReferences">
-      
-    <MSBuild Projects="..\Renderer.Direct3D12.Shaders\Renderer.Direct3D12.Shaders.csproj" Targets="Build" Properties="Configuration=$(Configuration)" />
-
+<Project>
+  <PropertyGroup>
+    <CoreCompileDependsOn>
+      $(CoreCompileDependsOn);
+      Codegen
+    </CoreCompileDependsOn>
+  </PropertyGroup>
+    
+  <Target Name="Codegen" DependsOnTargets="ResolveProjectReferences" Condition="'$(DesignTimeBuild)' == ''">
     <RemoveDir Directories="$(MSBuildProjectDirectory)\obj\Generated" />
       
     <Message Text="Running code generators" Importance="high" />
     <Exec command="..\Renderer.Direct3D12.Shaders\bin\$(Configuration)\net8.0\Renderer.Direct3D12.Shaders.exe $(MSBuildProjectDirectory)\obj\Generated" />
+      
+    <ItemGroup>
+        <Compile Include="$(MSBuildProjectDirectory)\obj\Generated\**\*.g.cs" KeepDuplicates="false" />
+    </ItemGroup>
   </Target>
-
-  <ItemGroup>
-      <Compile Include="$(MSBuildProjectDirectory)\obj\Generated\**\*.g.cs" KeepDuplicates="false" />
-  </ItemGroup>
 </Project>
