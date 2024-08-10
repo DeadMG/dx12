@@ -2,6 +2,7 @@
 
 #include "Spherical.hlsl"
 #include "Structured.hlsl"
+#include "Sampling.hlsl"
 
 static const int numLights = 1;
 
@@ -88,26 +89,6 @@ SampledLight zeroLight()
     return light;
 }
 
-float3 partialSphereSample(inout uint seed, float3 spherePosition, float size, float3 normal, float3 origin)
-{
-    // Perform the plane intersection
-    float d = dot(origin, normal);
-    float rho = (normal.x * spherePosition.x) + (normal.y * spherePosition.y) + (normal.z * spherePosition.z) - d;
-    float r = sqrt(size * size - rho * rho);
-    
-    float elevationAdjustment = asin(r / size) / PI;
-    
-    Spherical existing = cartesianToSpherical(normal);
-    Spherical random = randomSpherical(size, seed);
-    
-    random.elevation *= elevationAdjustment;
-    
-    random.elevation = random.elevation + existing.elevation;
-    random.azimuth = random.azimuth + existing.azimuth;
-    
-    return spherePosition + sphericalToCartesian(random);
-}
-
 SampledLight sampleSphereLight(inout uint seed, float3 origin, float3 normal, float power, float3 position, float size, bool distanceIndependent)
 {
     float current = power / distanceFactor(origin, position, distanceIndependent);
@@ -122,32 +103,12 @@ SampledLight sampleSphereLight(inout uint seed, float3 origin, float3 normal, fl
     float angle = asin(ratio);
     float start = acos(dot(normal, normalize(direction)));
     
-    float top = cos(start + angle);
-    float bottom = cos(start - angle);
-    
-    float topExtent = max(top, bottom);
-    float bottomExtent = min(top, bottom);
-    
-    if (topExtent <= 0)
+    if ((start - angle) >= (PI / 2))
         return zeroLight();
-    
-    // Whole thing visible
-    if (bottomExtent >= 0)
-    {
-        float3 targetPosition = position + sphericalToCartesian(randomSpherical(size, seed));
-        float3 direction =  normalize(targetPosition - origin);
-        
-        SampledLight light;
-        light.power = current;
-        light.direction = direction;
-        return light;
-    }
-    
-    current = current * (topExtent / (topExtent - bottomExtent));    
-    
+
     SampledLight light;
     light.power = current;
-    light.direction = normalize(partialSphereSample(seed, position, size, normal, origin) - origin);
+    light.direction = cone(seed, normalize(direction), angle);
     return light;
 }
 

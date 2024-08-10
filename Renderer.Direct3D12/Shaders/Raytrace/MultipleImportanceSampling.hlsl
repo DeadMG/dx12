@@ -8,4 +8,3 @@ float powerHeuristic(int nf, float fPdf, int ng, float gPdf)
     float g = ng * gPdf;
     return pow2(f) / (pow2(f) + pow2(g));
 }
-

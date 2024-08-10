@@ -5,6 +5,10 @@
       Codegen
     </CoreCompileDependsOn>
   </PropertyGroup>
+
+  <ItemGroup>
+      <UpToDateCheckInput Include="**\*.hlsl"></UpToDateCheckInput>
+  </ItemGroup>
     
   <Target Name="Codegen" DependsOnTargets="ResolveProjectReferences" Condition="'$(DesignTimeBuild)' == ''">
     <RemoveDir Directories="$(MSBuildProjectDirectory)\obj\Generated" />

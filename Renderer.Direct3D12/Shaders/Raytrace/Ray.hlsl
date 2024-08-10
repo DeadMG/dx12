@@ -34,13 +34,13 @@ void StopFilter(inout RadiancePayload payload, float3 colour)
     payload.IncomingLight = colour;
 }
 
-void IncreaseDepth(inout RadiancePayload payload, uint depth)
+void IncreaseDepth(inout RadiancePayload payload, uint16_t depth)
 {
     payload.IncomingLight = float3(0, 0, 0);
     payload.Depth = depth + 1;
 }
 
-uint GetDepth(RadiancePayload payload)
+uint16_t GetDepth(RadiancePayload payload)
 {
     return payload.Depth;
 }

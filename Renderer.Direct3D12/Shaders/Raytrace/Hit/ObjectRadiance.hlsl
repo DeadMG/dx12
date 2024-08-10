@@ -39,7 +39,31 @@ float3 normalMul(float3 objectNormal, float4x4 mat)
     return normalize(result.xyz);
 }
 
-float3 monteCarlo(RaytracingAccelerationStructure SceneBVH, uint depth, float3 normal, float3 startPosition, inout uint seed)
+float3 sample(RaytracingAccelerationStructure SceneBVH, float3 direction, float3 startPosition, uint depth)
+{
+    RayDesc ray;
+    ray.Origin = startPosition;
+    ray.Direction = direction;
+    ray.TMin = 0.01;
+    ray.TMax = 10000;
+        
+    RadiancePayload newPayload;
+    IncreaseDepth(newPayload, depth);
+    
+    TraceRay(
+        SceneBVH,
+        0,
+        0xFF,
+        0,
+        0,
+        0,
+        ray,
+        newPayload);
+            
+    return newPayload.IncomingLight;    
+}
+
+float3 monteCarlo(RaytracingAccelerationStructure SceneBVH, uint16_t depth, float3 normal, float3 startPosition, inout uint seed)
 {
     if (depth >= Settings.MaxBounces)
         return float3(0, 0, 0); // We can't afford to sample this further
@@ -56,37 +80,31 @@ float3 monteCarlo(RaytracingAccelerationStructure SceneBVH, uint depth, float3 n
     
     if (!anyLights)
     {
+        brdfSamples += neeSamples;
         neeSamples = 0;
     }
     
-    int16_t totalSamples = brdfSamples + neeSamples;
-    
-    for (int16_t i = 0; i < totalSamples; ++i)
+    for (int16_t i = 0; i < neeSamples; i++)
     {
-        RayDesc ray;
-        ray.Origin = startPosition;
-        ray.Direction = i < brdfSamples ? cosineHemisphere(seed, normal) : sampleLights(lights, seed).direction;
-        ray.TMin = 0.01;
-        ray.TMax = 10000;
+        float3 direction = sampleSphereLight(seed, startPosition, normal, Settings.Light.Power, Settings.Light.Position, Settings.Light.Size, Settings.Light.DistanceIndependent).direction;
         
-        RadiancePayload newPayload;
-        IncreaseDepth(newPayload, depth);
-    
-        TraceRay(
-            SceneBVH,
-            0,
-            0xFF,
-            0,
-            0,
-            0,
-            ray,
-            newPayload);
-            
-        incomingLight += newPayload.IncomingLight;
+        if (all(direction == float3(0, 0, 0)) || dot(direction, normal) < 0)
+        {
+            incomingLight += float3(Settings.AmbientLight, Settings.AmbientLight, Settings.AmbientLight);
+            brdfSamples += 1;
+            continue;
+        }
+        
+        incomingLight += sample(SceneBVH, direction, startPosition, depth);
+    }
+        
+    for (int16_t i = 0; i < brdfSamples; ++i)
+    {
+        incomingLight += sample(SceneBVH, cosineHemisphere(seed, normal), startPosition, depth);
     }
     
     // This is not a valid implementation of MIS. To be fixed.
-    return incomingLight / totalSamples;
+    return incomingLight / (brdfSamples + neeSamples);
 }
 
 Triangle LoadTriangle(int index)
