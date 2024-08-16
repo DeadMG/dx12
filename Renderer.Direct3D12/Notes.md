@@ -41,3 +41,14 @@ So dividing by PDF gives
 
 Next Event Estimation (NEE) refers to sampling lights directly. This is effectively assuming that direct lighting matters most.
 BRDF sampling refers to sampling directions where the material reflects most light. e.g. for a Lambertian material, cosine weighting.
+
+When using Multiple Importance Sampling, the desired result is
+
+sum for each distribution D
+   1 / S(D) *
+       sum for each sample I
+           balance(D, I) * (f(I) / pdf(D, I))
+
+where balance(D, I) = S(D) * pdf(I) / 
+    sum for each distribution J
+        S(J) * PDF(J, I)
