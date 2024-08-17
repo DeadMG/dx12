@@ -10,9 +10,10 @@ struct ObjectRadianceParameters
     uint MaxBounces;
     float AmbientLight;
     float4x4 WorldMatrix;
-    LightSource Light;
+    
     uint Seed;
     uint TrianglesIndex;
+    uint LightsIndex;
     uint TLASIndex;
 };
 
@@ -39,7 +40,7 @@ float3 normalMul(float3 objectNormal, float4x4 mat)
     return normalize(result.xyz);
 }
 
-float3 sample(RaytracingAccelerationStructure SceneBVH, float3 direction, float3 startPosition, uint depth)
+float3 performSample(RaytracingAccelerationStructure SceneBVH, float3 direction, float3 startPosition, uint depth)
 {
     RayDesc ray;
     ray.Origin = startPosition;
@@ -60,51 +61,43 @@ float3 sample(RaytracingAccelerationStructure SceneBVH, float3 direction, float3
         ray,
         newPayload);
             
-    return newPayload.IncomingLight;    
+    return newPayload.IncomingLight;
 }
 
-float3 monteCarlo(RaytracingAccelerationStructure SceneBVH, uint16_t depth, float3 normal, float3 startPosition, inout uint seed)
+float3 monteCarlo(RaytracingAccelerationStructure SceneBVH, StructuredBuffer<LightSource> allLights, uint16_t depth, float3 normal, float3 startPosition, inout uint seed)
 {
     if (depth >= Settings.MaxBounces)
         return float3(0, 0, 0); // We can't afford to sample this further
     
-    SampledLight lights[numLights];
-    bool anyLights = prepareLights(lights, Settings.Light, seed, startPosition, normal);
+    LightSource lights[numLights];
+    prepareLights(lights, allLights, seed, startPosition, normal);
+    
+    MonteCarloSample samples[numSamples];
+    samples[0] = sampleLights(lights, seed, startPosition, normal);
+    samples[1] = sampleLights(lights, seed, startPosition, normal);
+    samples[2] = sampleLights(lights, seed, startPosition, normal);
+    samples[3] = cosineHemisphere(seed, normal);
+    
+    for (int i = 0; i < numSamples; i++)
+    {
+        if (!isValidSample(samples[i], normal))
+        {
+            samples[i] = cosineHemisphere(seed, normal);
+        }
+    }
+    
+    PreweightedMonteCarloSample preweightedSamples[numSamples];
+    preweightSamples(preweightedSamples, samples, lights, startPosition, normal);
     
     float3 incomingLight = float3(0, 0, 0);
-    
-    // Due to the low likelihood of BRDF samples hitting, we allocate 1 sample there, and 3 for NEE.
-    // Unless there are no lights in which case all 4 samples goes to BRDF.
-    int16_t brdfSamples = 1;
-    int16_t neeSamples = 3;
-    
-    if (!anyLights)
+        
+    for (int16_t i = 0; i < numSamples; ++i)
     {
-        brdfSamples += neeSamples;
-        neeSamples = 0;
+        PreweightedMonteCarloSample psample = preweightedSamples[i];
+        incomingLight = incomingLight + (performSample(SceneBVH, directionToCartesian(psample.direction), startPosition, depth) * psample.weight);
     }
     
-    for (int16_t i = 0; i < neeSamples; i++)
-    {
-        float3 direction = sampleSphereLight(seed, startPosition, normal, Settings.Light.Power, Settings.Light.Position, Settings.Light.Size, Settings.Light.DistanceIndependent).direction;
-        
-        if (all(direction == float3(0, 0, 0)) || dot(direction, normal) < 0)
-        {
-            incomingLight += float3(Settings.AmbientLight, Settings.AmbientLight, Settings.AmbientLight);
-            brdfSamples += 1;
-            continue;
-        }
-        
-        incomingLight += sample(SceneBVH, direction, startPosition, depth);
-    }
-        
-    for (int16_t i = 0; i < brdfSamples; ++i)
-    {
-        incomingLight += sample(SceneBVH, cosineHemisphere(seed, normal), startPosition, depth);
-    }
-    
-    // This is not a valid implementation of MIS. To be fixed.
-    return incomingLight / (brdfSamples + neeSamples);
+    return incomingLight;
 }
 
 Triangle LoadTriangle(int index)
@@ -124,9 +117,11 @@ void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes 
     float3 startPosition = WorldRayOrigin() + (RayTCurrent() * WorldRayDirection());
     float3 normal = alignWith(-WorldRayDirection(), normalMul(t.Normal, Settings.WorldMatrix));
     
+    payload.IncomingLight = min(payload.IncomingLight + (t.EmissionStrength * t.EmissionColour), float3(1, 1, 1));
+    
     uint seed = Settings.Seed * pow2(index.x + 1u) * pow2(index.y + 1u);
     
-    float3 incomingLight = monteCarlo(ResourceDescriptorHeap[Settings.TLASIndex], GetDepth(payload), normal, startPosition, seed);
+    float3 incomingLight = monteCarlo(ResourceDescriptorHeap[Settings.TLASIndex], ResourceDescriptorHeap[Settings.LightsIndex], GetDepth(payload), normal, startPosition, seed);
     
-    payload.IncomingLight = min(payload.IncomingLight + (incomingLight * t.Colour) + (t.EmissionStrength * t.EmissionColour), float3(1, 1, 1));
+    payload.IncomingLight = min(payload.IncomingLight + (incomingLight * t.Colour), float3(1, 1, 1));
 }

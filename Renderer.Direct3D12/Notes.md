@@ -42,13 +42,75 @@ So dividing by PDF gives
 Next Event Estimation (NEE) refers to sampling lights directly. This is effectively assuming that direct lighting matters most.
 BRDF sampling refers to sampling directions where the material reflects most light. e.g. for a Lambertian material, cosine weighting.
 
-When using Multiple Importance Sampling, the desired result is
+When using Multiple Importance Sampling, the desired result for the MC section is
+$$
+\sum_{D\,\in\,distributions}
+   \frac{1}{|S(D)|}
+       \sum_{I\,\in\,S(D)}
+           \frac{balance(D, I)\,f(I)}{pdf(D, I)}
+$$
 
-sum for each distribution D
-   1 / S(D) *
-       sum for each sample I
-           balance(D, I) * (f(I) / pdf(D, I))
+where balance(D, I) = 
+$$
+\frac{|S(D)|\,pdf(D, I)}{\sum_{J\,\in\,distributions} |S(J)|\,pdf(J, I)}
+$$
+Given that we have only two distributions, NEE and BRDF, then this should expand to
 
-where balance(D, I) = S(D) * pdf(I) / 
-    sum for each distribution J
-        S(J) * PDF(J, I)
+$$
+\frac{1}{|S(NEE)|}
+    \sum_{I\,\in\,S(NEE)}
+        \frac{balance(NEE, I)\,f(I)}{pdf(NEE, I)}
++
+\frac{1}{|S(BRDF)|}
+    \sum_{I\,\in\,S(BRDF)}
+        \frac{balance(BRDF, I)\,f(I)}{pdf(BRDF, I)}
+$$
+
+where balance(D, I) =
+
+$$
+\frac{|S(D)|\,pdf(D, I)}{|S(NEE)|\,pdf(NEE, I) + |S(BRDF)|\,pdf(BRDF, I)}
+$$
+
+which should expand to to
+$$
+\frac{1}{|S(NEE)|}
+    \sum_{I\,\in\,S(NEE)}
+        \frac{|S(NEE)|\,pdf(NEE, I)\,f(I)}{pdf(NEE, I)\,(|S(NEE)|\,pdf(NEE, I) + |S(BRDF)|\,pdf(BRDF, I))}
++
+\frac{1}{S(BRDF)}
+    \sum_{I\,\in\,S(BRDF)}
+        \frac{|S(BRDF)|\,pdf(BRDF, I)\,f(I)}{pdf(BRDF, I)\,(|S(NEE)|\,pdf(NEE, I) + |S(BRDF)|\,pdf(BRDF, I))}
+$$
+which should simplify to
+$$
+\frac{1}{|S(NEE)|}
+    \sum_{I\,\in\,S(NEE)}
+        \frac{|S(NEE)|\,f(I)}{|S(NEE)|\,PDF(NEE, I) + |S(BRDF)|\,PDF(BRDF, I)}
++
+\frac{1}{S(BRDF)}
+    \sum_{I\,\in\,S(BRDF)}
+        \frac{|S(BRDF)|\,f(I)}{|S(BRDF)|\,PDF(NEE, I) + |S(BRDF)|\,PDF(BRDF, I)}
+$$  
+which should simplify to
+$$
+
+    \sum_{I\,\in\,S(NEE)}
+        \frac{f(I)}{|S(NEE)|\,PDF(NEE, I) + |S(BRDF)|\,PDF(BRDF, I)}
++
+
+    \sum_{I\,\in\,S(BRDF)}
+        \frac{f(I)}{|S(BRDF)|\,PDF(NEE, I) + |S(BRDF)|\,PDF(BRDF, I)}
+$$  
+As all samples now have the same terms, we can simplify with $S = S(BRDF)\,\cup\,S(NEE)$
+$$
+\sum_{I\,\in\,S}
+    \frac{f(I)}{|S(NEE)|\,PDF(NEE, I) + |S(BRDF)|\,PDF(BRDF, I)}
+$$
+given that $f(I) = incident(P, I)\,\frac{LR}{\pi}\,dot(N, I)$
+
+then this should expand to
+$$
+\sum_{I\,\in\,S}
+     \frac{incident(P, I)\,LR\,dot(N, I)}{\pi\,(|S(NEE)|\,PDF(NEE, I) + |S(BRDF)|\,PDF(BRDF, I))}
+$$

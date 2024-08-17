@@ -34,8 +34,8 @@ namespace Renderer.Direct3D12
 
             if (options.PIX)
             {
-                LoadLibraryW("C:\\Program Files\\Microsoft PIX\\2405.15.002-OneBranch_release\\WinPixGpuCapturer.dll");
-                LoadLibraryW("C:\\Program Files\\Microsoft PIX\\2405.15.002-OneBranch_release\\WinPixTimingCapturer.dll");
+                LoadLibraryW("C:\\Program Files\\Microsoft PIX\\2408.09\\WinPixGpuCapturer.dll");
+                LoadLibraryW("C:\\Program Files\\Microsoft PIX\\2408.09\\WinPixTimingCapturer.dll");
             }
             
             if (options.DXGIBreak)

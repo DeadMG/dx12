@@ -30,6 +30,19 @@ struct Triangle
     float pad1;
 };
 
+struct LightSource
+{
+    float Power;
+    float3 Position;
+    float Size;
+    bool DistanceIndependent;
+};
+
+void fakeUse(inout RadiancePayload payload, LightSource l)
+{
+    payload.Depth += l.Power;
+}
+
 void fakeUse(inout RadiancePayload payload, StarCategory cat)
 {
     payload.IncomingLight += cat.Colour;
