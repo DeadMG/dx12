@@ -50,7 +50,7 @@ namespace Renderer.Direct3D12.Shaders
         public void CommitRaytracing(RaytraceCommit commit)
         {
             commit.List.List.ResourceBarrierUnorderedAccessView(commit.ScreenSizeRaytraceResources.OutputSrv);
-            commit.List.List.ResourceBarrierUnorderedAccessView(commit.ScreenSizeRaytraceResources.Data);
+            commit.List.List.ResourceBarrierUnorderedAccessView(commit.ScreenSizeRaytraceResources.Data.Buffer);
 
             // Do stuff
             commit.List.List.SetPipelineState(filterShader.PipelineState);
@@ -59,7 +59,7 @@ namespace Renderer.Direct3D12.Shaders
             {
                 ImageHeight = (uint)screenSize.Height,
                 ImageWidth = (uint)screenSize.Width,
-                DataIndex = commit.HeapAccumulator.AddStructuredBuffer(commit.ScreenSizeRaytraceResources.Data, commit.ScreenSizeRaytraceResources.DataSrv),
+                DataIndex = commit.HeapAccumulator.AddStructuredBuffer(commit.ScreenSizeRaytraceResources.Data),
                 InputIndex = commit.HeapAccumulator.AddUAV(commit.ScreenSizeRaytraceResources.OutputSrv),
                 OutputIndex = commit.HeapAccumulator.AddUAV(commit.ScreenSizeRaytraceResources.FilterSrv),
             }]);

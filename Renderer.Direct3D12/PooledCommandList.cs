@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+﻿using System.Runtime.InteropServices;
 using Util;
 
 namespace Renderer.Direct3D12
@@ -37,12 +37,13 @@ namespace Renderer.Direct3D12
         }
 
         // Yep; no need for the caller to wait on disposal of this resource
-        public void UploadData<T>(Vortice.Direct3D12.ID3D12Resource resource, IReadOnlyList<T> data)
+        public StructuredBuffer UploadData<T>(Vortice.Direct3D12.ID3D12Resource resource, IReadOnlyList<T> data)
             where T : unmanaged
         {
             var tempResource = DisposeAfterExecution(CreateUploadBuffer(data));
             commandList.CopyResource(resource, tempResource);
             commandList.ResourceBarrier(new Vortice.Direct3D12.ResourceBarrier(new Vortice.Direct3D12.ResourceTransitionBarrier(resource, Vortice.Direct3D12.ResourceStates.CopyDest, Vortice.Direct3D12.ResourceStates.Common)));
+            return new StructuredBuffer(resource, new Vortice.Direct3D12.BufferShaderResourceView { NumElements = data.Count, StructureByteStride = Marshal.SizeOf<T>() });
         }
 
         public Vortice.Direct3D12.ID3D12Resource CreateUploadBuffer<T>(IReadOnlyList<T> data, uint alignment = 1)

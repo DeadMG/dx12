@@ -69,7 +69,6 @@ namespace Renderer.Direct3D12
                 Type = Vortice.Direct3D12.RaytracingAccelerationStructureType.BottomLevel
             };
 
-            list.UploadData(triangleBuffer, triangles);
             list.UploadData(vertexBuffer, vertices);
 
             var prebuild = device.GetRaytracingAccelerationStructurePrebuildInfo(asDesc);
@@ -88,12 +87,7 @@ namespace Renderer.Direct3D12
             var data = new MeshData
             { 
                 BLAS = result, 
-                TriangleBuffer = triangleBuffer,
-                TriangleSRV = new Vortice.Direct3D12.BufferShaderResourceView
-                {
-                    StructureByteStride = Marshal.SizeOf<Shaders.Data.Triangle>(),
-                    NumElements = triangles.Length,
-                },
+                Triangles = list.UploadData(triangleBuffer, triangles),
                 Power = totalPower,
                 Size = size
             };
@@ -147,8 +141,7 @@ namespace Renderer.Direct3D12
 
         public class MeshData
         {
-            public required Vortice.Direct3D12.ID3D12Resource TriangleBuffer { get; init; }
-            public required Vortice.Direct3D12.BufferShaderResourceView TriangleSRV { get; init; }
+            public required StructuredBuffer Triangles { get; init; }
             public required Vortice.Direct3D12.ID3D12Resource BLAS { get; init; }
             public required float Power { get; init; }
             public required float Size { get; init; }

@@ -28,14 +28,14 @@ namespace Renderer.Direct3D12.Shaders
 
             var parameters = new Data.StarfieldParameters
             {
-                DataIndex = preparation.HeapAccumulator.AddStructuredBuffer(preparation.ScreenSizeRaytraceResources.Data, preparation.ScreenSizeRaytraceResources.DataSrv),
+                DataIndex = preparation.HeapAccumulator.AddStructuredBuffer(preparation.ScreenSizeRaytraceResources.Data),
                 NoiseScale = preparation.Volume.Map.StarfieldNoiseScale,
                 NoiseCutoff = preparation.Volume.Map.StarfieldNoiseCutoff,
                 TemperatureScale = preparation.Volume.Map.StarfieldTemperatureScale,
                 StarCategories = (uint)preparation.Volume.Map.StarCategories.Length,
                 Seed = mapData.Seed,
                 AmbientLight = preparation.Volume.Map.AmbientLightLevel,
-                CategoryIndex = preparation.HeapAccumulator.AddStructuredBuffer(mapData.CategoryBuffer, mapData.CategorySRV)
+                CategoryIndex = preparation.HeapAccumulator.AddStructuredBuffer(mapData.Categories)
             };
 
             preparation.ShaderTable.AddMiss(radianceMiss.Export, tlas => parameters.GetBytes());

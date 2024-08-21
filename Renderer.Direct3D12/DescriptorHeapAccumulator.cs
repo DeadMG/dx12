@@ -7,14 +7,14 @@ namespace Renderer.Direct3D12
         private readonly DisposeTracker disposeTracker = new DisposeTracker();
         private readonly Vortice.Direct3D12.ID3D12Device5 device;
 
-        private readonly DescriptorHeapHolder cbvUavSrvHeap;
-        private readonly DescriptorHeapHolder renderTargetHeap;
+        private readonly BufferHeap cbvUavSrvHeap;
+        private readonly RenderTargetHeap renderTargetHeap;
 
         public DescriptorHeapAccumulator(Vortice.Direct3D12.ID3D12Device5 device)
         {
             this.device = device;
 
-            cbvUavSrvHeap = disposeTracker.Track(new DescriptorHeapHolder("Accumulator CBV/UAV/SRV heap", device, new Vortice.Direct3D12.DescriptorHeapDescription
+            cbvUavSrvHeap = disposeTracker.Track(new BufferHeap(device, new Vortice.Direct3D12.DescriptorHeapDescription
             {
                 DescriptorCount = 100000,
                 Flags = Vortice.Direct3D12.DescriptorHeapFlags.ShaderVisible,
@@ -22,7 +22,7 @@ namespace Renderer.Direct3D12
                 Type = Vortice.Direct3D12.DescriptorHeapType.ConstantBufferViewShaderResourceViewUnorderedAccessView
             }));
 
-            renderTargetHeap = disposeTracker.Track(new DescriptorHeapHolder("Accumulator Render target heap", device, new Vortice.Direct3D12.DescriptorHeapDescription
+            renderTargetHeap = disposeTracker.Track(new RenderTargetHeap(device, new Vortice.Direct3D12.DescriptorHeapDescription
             {
                 DescriptorCount = 10000,
                 Flags = Vortice.Direct3D12.DescriptorHeapFlags.None,
@@ -31,63 +31,17 @@ namespace Renderer.Direct3D12
             }));
         }
 
-        public uint AddUAV(Vortice.Direct3D12.ID3D12Resource buffer)
-        {
-            var slot = cbvUavSrvHeap.GetSlot();
+        public uint AddStructuredBuffer(StructuredBuffer buffer) =>
+            cbvUavSrvHeap.AddStructuredBuffer(buffer).Index;
 
-            device.CreateUnorderedAccessView(buffer,
-                null,
-                new Vortice.Direct3D12.UnorderedAccessViewDescription
-                {
-                    ViewDimension = Vortice.Direct3D12.UnorderedAccessViewDimension.Texture2D
-                },
-                slot.Handle);
+        public uint AddUAV(Vortice.Direct3D12.ID3D12Resource buffer) =>
+            cbvUavSrvHeap.AddUAV(buffer).Index;
 
-            return slot.Index;
-        }
+        public uint AddRaytracingStructure(Vortice.Direct3D12.ID3D12Resource resource) =>
+            cbvUavSrvHeap.AddRaytracingStructure(resource).Index;
 
-        public uint AddStructuredBuffer(Vortice.Direct3D12.ID3D12Resource buffer, Vortice.Direct3D12.BufferShaderResourceView view)
-        {
-            var slot = cbvUavSrvHeap.GetSlot();
-
-            device.CreateShaderResourceView(buffer, 
-                new Vortice.Direct3D12.ShaderResourceViewDescription 
-                { 
-                    Buffer = view,
-                    ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.Buffer,
-                    Shader4ComponentMapping = Vortice.Direct3D12.ShaderComponentMapping.Default,
-                },
-                slot.Handle);
-
-            return slot.Index;
-        }
-
-        public uint AddRaytracingStructure(Vortice.Direct3D12.ID3D12Resource resource)
-        {
-            var slot = cbvUavSrvHeap.GetSlot();
-
-            device.CreateShaderResourceView(null,
-                new Vortice.Direct3D12.ShaderResourceViewDescription
-                {
-                    Format = Vortice.DXGI.Format.Unknown,
-                    ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.RaytracingAccelerationStructure,
-                    Shader4ComponentMapping = Vortice.Direct3D12.ShaderComponentMapping.Default,
-                    RaytracingAccelerationStructure = new Vortice.Direct3D12.RaytracingAccelerationStructureShaderResourceView
-                    {
-                        Location = resource.GPUVirtualAddress,
-                    }
-                },
-                slot.Handle);
-
-            return slot.Index;
-        }
-
-        public Vortice.Direct3D12.CpuDescriptorHandle AddRenderTargetView(Vortice.Direct3D12.ID3D12Resource renderTarget)
-        {
-            var slot = renderTargetHeap.GetSlot();
-            device.CreateRenderTargetView(renderTarget, null, slot.Handle);
-            return slot.Handle;
-        }
+        public Vortice.Direct3D12.CpuDescriptorHandle AddRenderTargetView(Vortice.Direct3D12.ID3D12Resource renderTarget) =>
+            renderTargetHeap.AddRenderTargetView(renderTarget).Handle;
 
         public void Reset()
         {
@@ -110,28 +64,21 @@ namespace Renderer.Direct3D12
             private readonly DisposeTracker disposeTracker = new DisposeTracker();
             private readonly Vortice.Direct3D12.ID3D12DescriptorHeap heap;
             private readonly int increment;
-            
+            protected readonly Vortice.Direct3D12.ID3D12Device5 device;
+
             private uint start;
 
             public DescriptorHeapHolder(string name, Vortice.Direct3D12.ID3D12Device5 device, Vortice.Direct3D12.DescriptorHeapDescription desc)
             {
+                this.device = device;
+
                 heap = disposeTracker.Track(device.CreateDescriptorHeap(desc)).Name(name);
                 increment = device.GetDescriptorHandleIncrementSize(desc.Type);
 
                 start = 0;
             }
 
-            public DescriptorHeapSlot GetSlot()
-            {
-                var slot = start++;
-                return new DescriptorHeapSlot
-                {
-                    Index = slot,
-                    Handle = heap.GetCPUDescriptorHandleForHeapStart().Offset((int)slot, increment),
-                };
-            }
-
-            public void Reset()
+            public virtual void Reset()
             {
                 start = 0;
             }
@@ -141,7 +88,123 @@ namespace Renderer.Direct3D12
                 disposeTracker.Track(heap);
             }
 
+            protected DescriptorHeapSlot GetSlot()
+            {
+                var slot = start++;
+                return new DescriptorHeapSlot
+                {
+                    Index = slot,
+                    Handle = heap.GetCPUDescriptorHandleForHeapStart().Offset((int)slot, increment),
+                };
+            }
+
             public Vortice.Direct3D12.ID3D12DescriptorHeap Heap => heap;
+        }
+
+        private class BufferHeap : DescriptorHeapHolder
+        {
+            private readonly Dictionary<Vortice.Direct3D12.ID3D12Resource, DescriptorHeapSlot> raytracingStructures = new Dictionary<Vortice.Direct3D12.ID3D12Resource, DescriptorHeapSlot>();
+            private readonly Dictionary<Vortice.Direct3D12.ID3D12Resource, DescriptorHeapSlot> uavs = new Dictionary<Vortice.Direct3D12.ID3D12Resource, DescriptorHeapSlot>();
+            private readonly Dictionary<StructuredBuffer, DescriptorHeapSlot> structuredBuffers = new Dictionary<StructuredBuffer, DescriptorHeapSlot>();
+
+            public BufferHeap(Vortice.Direct3D12.ID3D12Device5 device, Vortice.Direct3D12.DescriptorHeapDescription desc) : base("Accumulator CBV/UAV/SRV heap", device, desc)
+            {
+            }
+
+            public override void Reset()
+            {
+                base.Reset();
+                raytracingStructures.Clear();
+                uavs.Clear();
+                structuredBuffers.Clear();
+            }
+
+            public DescriptorHeapSlot AddStructuredBuffer(StructuredBuffer buffer)
+            {
+                if (structuredBuffers.ContainsKey(buffer)) return structuredBuffers[buffer];
+
+                var slot = GetSlot();
+
+                device.CreateShaderResourceView(buffer.Buffer,
+                    new Vortice.Direct3D12.ShaderResourceViewDescription
+                    {
+                        Buffer = buffer.SRV,
+                        ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.Buffer,
+                        Shader4ComponentMapping = Vortice.Direct3D12.ShaderComponentMapping.Default,
+                    },
+                    slot.Handle);
+
+                structuredBuffers[buffer] = slot;
+                return slot;
+            }
+
+            public DescriptorHeapSlot AddUAV(Vortice.Direct3D12.ID3D12Resource buffer)
+            {
+                if (uavs.ContainsKey(buffer)) return uavs[buffer];
+
+                var slot = GetSlot();
+
+                device.CreateUnorderedAccessView(buffer,
+                    null,
+                    new Vortice.Direct3D12.UnorderedAccessViewDescription
+                    {
+                        ViewDimension = Vortice.Direct3D12.UnorderedAccessViewDimension.Texture2D
+                    },
+                    slot.Handle);
+
+                uavs[buffer] = slot;
+
+                return slot;
+            }
+
+            public DescriptorHeapSlot AddRaytracingStructure(Vortice.Direct3D12.ID3D12Resource resource)
+            {
+                if (raytracingStructures.ContainsKey(resource)) return raytracingStructures[resource];
+
+                var slot = GetSlot();
+
+                device.CreateShaderResourceView(null,
+                    new Vortice.Direct3D12.ShaderResourceViewDescription
+                    {
+                        Format = Vortice.DXGI.Format.Unknown,
+                        ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.RaytracingAccelerationStructure,
+                        Shader4ComponentMapping = Vortice.Direct3D12.ShaderComponentMapping.Default,
+                        RaytracingAccelerationStructure = new Vortice.Direct3D12.RaytracingAccelerationStructureShaderResourceView
+                        {
+                            Location = resource.GPUVirtualAddress,
+                        }
+                    },
+                    slot.Handle);
+
+                raytracingStructures[resource] = slot;
+
+                return slot;
+            }
+        }
+
+        private class RenderTargetHeap : DescriptorHeapHolder
+        {
+            private readonly Dictionary<Vortice.Direct3D12.ID3D12Resource, DescriptorHeapSlot> renderTargets = new Dictionary<Vortice.Direct3D12.ID3D12Resource, DescriptorHeapSlot>();
+
+            public RenderTargetHeap(Vortice.Direct3D12.ID3D12Device5 device, Vortice.Direct3D12.DescriptorHeapDescription desc) : base("Accumulator Render target heap", device, desc)
+            {
+            }
+
+            public override void Reset()
+            {
+                base.Reset();
+                renderTargets.Clear();
+            }
+            
+            public DescriptorHeapSlot AddRenderTargetView(Vortice.Direct3D12.ID3D12Resource renderTarget)
+            {
+                if (renderTargets.ContainsKey(renderTarget)) return renderTargets[renderTarget];
+
+                var slot = GetSlot();
+                renderTargets[renderTarget] = slot;
+                device.CreateRenderTargetView(renderTarget, null, slot.Handle);
+                return slot;
+            }
         }
 
         private struct DescriptorHeapSlot
