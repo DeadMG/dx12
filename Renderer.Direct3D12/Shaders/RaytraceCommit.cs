@@ -1,4 +1,6 @@
-﻿namespace Renderer.Direct3D12.Shaders
+﻿using Data.Space;
+
+namespace Renderer.Direct3D12.Shaders
 {
     internal class RaytraceCommit
     {
@@ -6,5 +8,6 @@
         public required PooledCommandList List { get; init; }
         public required DescriptorHeapAccumulator HeapAccumulator { get; init; }
         public required ScreenSizeRaytraceResources ScreenSizeRaytraceResources { get; init; }
+        public required ScreenSize ScreenSize { get; init; }
     }
 }

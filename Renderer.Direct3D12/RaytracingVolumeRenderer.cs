@@ -46,13 +46,13 @@ namespace Renderer.Direct3D12
             filterShader = disposeTracker.Track(new Shaders.Raytrace.RayGen.Filter(device));
 
             missShaderStep = disposeTracker.Track(new Shaders.MissShaders(mapResourceCache, radianceMiss));
-            rayGenStep = disposeTracker.Track(new Shaders.CameraRayGen(screenSize, filterShader, cameraShader));
+            rayGenStep = disposeTracker.Track(new Shaders.CameraRayGen(filterShader, cameraShader));
 
             objectStep = disposeTracker.Track(new Shaders.ObjectStep(meshResourceCache, maxRays, objectRadiance, sphereRadiance, sphereIntersection));
 
             emptyGlobalSignature = disposeTracker.Track(device.CreateRootSignature(new Vortice.Direct3D12.RootSignatureDescription1(Vortice.Direct3D12.RootSignatureFlags.ConstantBufferViewShaderResourceViewUnorderedAccessViewHeapDirectlyIndexed))).Name("Empty global signature");
 
-            var shaderConfigSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.RaytracingShaderConfig { MaxAttributeSizeInBytes = 8, MaxPayloadSizeInBytes = 16 });
+            var shaderConfigSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.RaytracingShaderConfig { MaxAttributeSizeInBytes = 8, MaxPayloadSizeInBytes = 4 });
             var globalSignatureSubobject = new Vortice.Direct3D12.StateSubObject(new Vortice.Direct3D12.GlobalRootSignature(emptyGlobalSignature));
 
             Vortice.Direct3D12.StateSubObject[] fixedSubobjects = [
@@ -111,7 +111,14 @@ namespace Renderer.Direct3D12
             dispatchDesc.Height = camera.ScreenSize.Height;
             entry.List.DispatchRays(dispatchDesc);
 
-            var commit = new Shaders.RaytraceCommit { RenderTarget = rp.RenderTarget, List = entry, HeapAccumulator = heapAccumulator, ScreenSizeRaytraceResources = screenRaytraceResources.GetFor(camera.ScreenSize) };
+            var commit = new Shaders.RaytraceCommit 
+            { 
+                RenderTarget = rp.RenderTarget, 
+                List = entry, 
+                HeapAccumulator = heapAccumulator,
+                ScreenSizeRaytraceResources = screenRaytraceResources.GetFor(camera.ScreenSize),
+                ScreenSize = camera.ScreenSize
+            };
             foreach (var step in Steps)
             {
                 step.CommitRaytracing(commit);

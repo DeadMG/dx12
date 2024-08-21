@@ -10,14 +10,10 @@ namespace Renderer.Direct3D12.Shaders
         private readonly Raytrace.RayGen.Filter filterShader;
         private readonly Raytrace.RayGen.Camera cameraShader;
 
-        private ScreenSize screenSize;
-
-        public CameraRayGen(ScreenSize screenSize, Shaders.Raytrace.RayGen.Filter filterShader, Shaders.Raytrace.RayGen.Camera cameraShader)
+        public CameraRayGen(Shaders.Raytrace.RayGen.Filter filterShader, Shaders.Raytrace.RayGen.Camera cameraShader)
         {
             this.cameraShader = cameraShader;
             this.filterShader = filterShader;
-
-            this.screenSize = screenSize;
         }
 
         public Vortice.Direct3D12.StateSubObject[] CreateStateObjects() => [];
@@ -57,13 +53,13 @@ namespace Renderer.Direct3D12.Shaders
             commit.List.List.SetComputeRootSignature(filterShader.RootSignature);
             commit.List.List.SetComputeRoot32BitConstants(0, [new Data.FilterParameters
             {
-                ImageHeight = (uint)screenSize.Height,
-                ImageWidth = (uint)screenSize.Width,
+                ImageHeight = (uint)commit.ScreenSize.Height,
+                ImageWidth = (uint)commit.ScreenSize.Width,
                 DataIndex = commit.HeapAccumulator.AddStructuredBuffer(commit.ScreenSizeRaytraceResources.Data),
                 InputIndex = commit.HeapAccumulator.AddUAV(commit.ScreenSizeRaytraceResources.OutputSrv),
                 OutputIndex = commit.HeapAccumulator.AddUAV(commit.ScreenSizeRaytraceResources.FilterSrv),
             }]);
-            commit.List.List.Dispatch((int)Math.Ceiling(screenSize.Width / (float)32), (int)Math.Ceiling(screenSize.Height / (float)32), 1);
+            commit.List.List.Dispatch((int)Math.Ceiling(commit.ScreenSize.Width / (float)32), (int)Math.Ceiling(commit.ScreenSize.Height / (float)32), 1);
 
             commit.List.List.ResourceBarrier([
                 new Vortice.Direct3D12.ResourceBarrier(new Vortice.Direct3D12.ResourceTransitionBarrier(commit.ScreenSizeRaytraceResources.FilterSrv, Vortice.Direct3D12.ResourceStates.UnorderedAccess, Vortice.Direct3D12.ResourceStates.CopySource)),
