@@ -49,8 +49,7 @@ float3 performSample(RaytracingAccelerationStructure SceneBVH, float3 direction,
     ray.TMin = 0.01;
     ray.TMax = 10000;
         
-    RadiancePayload newPayload;
-    IncreaseDepth(newPayload, depth);
+    RadiancePayload newPayload = Outgoing(depth);
     
     TraceRay(
         SceneBVH,
@@ -62,7 +61,7 @@ float3 performSample(RaytracingAccelerationStructure SceneBVH, float3 direction,
         ray,
         newPayload);
             
-    return newPayload.IncomingLight;
+    return GetColour(newPayload).xyz;
 }
 
 float3 monteCarlo(RaytracingAccelerationStructure SceneBVH, StructuredBuffer<LightSource> allLights, uint16_t depth, float3 normal, float3 startPosition, inout uint seed)
@@ -116,7 +115,7 @@ Triangle LoadTriangle(int index)
 [shader("closesthit")]
 void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes attrib)
 {   
-    if (payload.Depth == 1)
+    if (GetDepth(payload) == 1)
     {        
         RWStructuredBuffer<RaytracingOutputData> dataBuffer = ResourceDescriptorHeap[Settings.DataIndex];
         RaytracingOutputData data;
@@ -131,11 +130,11 @@ void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes 
     float3 startPosition = WorldRayOrigin() + (RayTCurrent() * WorldRayDirection());
     float3 normal = alignWith(-WorldRayDirection(), normalMul(t.Normal, Settings.WorldMatrix));
     
-    payload.IncomingLight = min(payload.IncomingLight + (t.EmissionStrength * t.EmissionColour), float3(1, 1, 1));
+    Return(payload, min(GetColour(payload).rgb + (t.EmissionStrength * t.EmissionColour), float3(1, 1, 1)));
     
     uint seed = Settings.Seed * pow2(index.x + 1u) * pow2(index.y + 1u);
     
     float3 incomingLight = monteCarlo(ResourceDescriptorHeap[Settings.TLASIndex], ResourceDescriptorHeap[Settings.LightsIndex], GetDepth(payload), normal, startPosition, seed);
     
-    payload.IncomingLight = min(payload.IncomingLight + (incomingLight * t.Colour), float3(1, 1, 1));
+    Return(payload, min(GetColour(payload).rgb + (incomingLight * t.Colour), float3(1, 1, 1)));
 }

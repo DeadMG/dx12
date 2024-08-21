@@ -2,8 +2,7 @@
 
 struct RadiancePayload
 {
-    float3 IncomingLight;
-    uint Depth;
+    uint8_t4_packed IncomingDepthOutgoingLight;
 };
 
 // Attributes output by the raytracing when hitting a surface, here the barycentric coordinates
@@ -27,13 +26,30 @@ float3 barycentric(float2 bary)
     return float3((1.f - bary.x) - bary.y, bary.x, bary.y);
 }
 
-void IncreaseDepth(inout RadiancePayload payload, uint16_t depth)
+RadiancePayload Outgoing(uint currentDepth)
 {
-    payload.IncomingLight = float3(0, 0, 0);
-    payload.Depth = depth + 1;
+    RadiancePayload payload;
+    payload.IncomingDepthOutgoingLight = currentDepth + 1;
+    return payload;
 }
 
-uint16_t GetDepth(RadiancePayload payload)
+uint GetDepth(RadiancePayload payload)
 {
-    return payload.Depth;
+    return payload.IncomingDepthOutgoingLight;
+}
+
+void Return(inout RadiancePayload payload, float4 colour)
+{
+    payload.IncomingDepthOutgoingLight = pack_u8(colour * 255.0f);
+}
+
+void Return(inout RadiancePayload payload, float3 colour)
+{
+    Return(payload, float4(colour, 1));
+
+}
+
+float4 GetColour(RadiancePayload payload)
+{
+    return unpack_u8u32(payload.IncomingDepthOutgoingLight) / 255.0f;
 }

@@ -40,29 +40,29 @@ struct LightSource
 
 void fakeUse(inout RadiancePayload payload, LightSource l)
 {
-    payload.Depth += l.Power;
+    payload.IncomingDepthOutgoingLight += l.Power;
 }
 
 void fakeUse(inout RadiancePayload payload, StarCategory cat)
 {
-    payload.IncomingLight += cat.Colour;
+    payload.IncomingDepthOutgoingLight += cat.Colour;
 }
 
 void fakeUse(inout RadiancePayload payload, Vertex cat)
 {
-    payload.IncomingLight += cat.Position;
+    payload.IncomingDepthOutgoingLight += cat.Position;
 }
 
 void fakeUse(inout RadiancePayload payload, Triangle m)
 {
-    payload.IncomingLight += m.Normal;
+    payload.IncomingDepthOutgoingLight += m.Normal;
 }
 
 void fakeUse(inout RadiancePayload payload, RaytracingOutputData cat)
 {
     if (cat.Filter)
     {
-        payload.IncomingLight *= 2;        
+        payload.IncomingDepthOutgoingLight *= 2;
     }
 }
 

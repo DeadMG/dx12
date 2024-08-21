@@ -118,10 +118,10 @@ void RadianceMiss(inout RadiancePayload payload)
         float brightness = spotNoise(spherical, Parameters.NoiseScale, Parameters.NoiseCutoff);
         float distribution = spotNoise(spherical, Parameters.TemperatureScale, 0);
         
-        payload.IncomingLight = brightness * colour(distribution);
+        Return(payload, brightness * colour(distribution));
     }
     else
     {
-        payload.IncomingLight = float3(Parameters.AmbientLight, Parameters.AmbientLight, Parameters.AmbientLight);
+        Return(payload, float3(Parameters.AmbientLight, Parameters.AmbientLight, Parameters.AmbientLight));
     }
 }

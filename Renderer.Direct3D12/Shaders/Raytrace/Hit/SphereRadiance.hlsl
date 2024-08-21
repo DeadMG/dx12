@@ -14,10 +14,10 @@ void SphereRadianceClosestHit(inout RadiancePayload payload, SphereAttributes at
         data.Filter = false;
         dataBuffer[raytracingIndex()] = data;
         
-        payload.IncomingLight = Sphere.Colour;
+        Return(payload, Sphere.Colour);
     }
     else
     {
-        payload.IncomingLight = Sphere.EmissionStrength * Sphere.EmissionColour;
+        Return(payload, Sphere.EmissionStrength * Sphere.EmissionColour);
     }
 }

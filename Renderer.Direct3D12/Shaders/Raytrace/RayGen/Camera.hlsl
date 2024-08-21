@@ -46,9 +46,7 @@ void RayGen()
         
     // Initialize the ray payload
     
-    RadiancePayload payload;
-    payload.IncomingLight = float3(0, 0, 0);
-    payload.Depth = 1;
+    RadiancePayload payload = Outgoing(0);
     
     RayDesc ray;
     ray.Origin = Camera.Origin;
@@ -66,7 +64,7 @@ void RayGen()
         ray,
         payload);
     
-    float3 thisFrame = lerp(payload.IncomingLight, previousFilter[launchIndex].rgb, float3(0.7, 0.7, 0.7));
+    float3 thisFrame = lerp(GetColour(payload).rgb, previousFilter[launchIndex].rgb, float3(0.7, 0.7, 0.7));
     
     output[launchIndex] = float4(thisFrame, 1.0f);
 }
