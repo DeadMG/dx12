@@ -1,7 +1,7 @@
 #include "../Structured.hlsl"
 #include "../Power.hlsl"
 
-static const int sigmaD = 2;
+static const int sigmaD = 4;
 static const int sigmaR = 1;
 
 struct FilterParameters
