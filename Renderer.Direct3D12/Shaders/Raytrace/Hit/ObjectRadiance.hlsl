@@ -70,21 +70,26 @@ float3 monteCarlo(RaytracingAccelerationStructure SceneBVH, StructuredBuffer<Lig
         return float3(0, 0, 0); // We can't afford to sample this further
     
     LightSource lights[numLights];
-    prepareLights(lights, allLights, seed, startPosition, normal);
-    
     MonteCarloSample samples[numSamples];
-    samples[0] = sampleLights(lights, seed, startPosition, normal);
-    samples[1] = sampleLights(lights, seed, startPosition, normal);
-    samples[2] = sampleLights(lights, seed, startPosition, normal);
-    samples[3] = cosineHemisphere(seed, normal);
     
-    for (int i = 0; i < numSamples; i++)
+    if (prepareLights(lights, allLights, seed, startPosition, normal))
     {
-        if (!isValidSample(samples[i], normal))
+        [unroll]
+        for (int i = 0; i < 3; i++)
         {
-            samples[i] = cosineHemisphere(seed, normal);
+            samples[i] = sampleLights(lights, seed, startPosition, normal);
+            if (!isValidSample(samples[i], normal))
+                samples[i] = cosineHemisphere(seed, normal);
         }
     }
+    else
+    {
+        samples[0] = cosineHemisphere(seed, normal);
+        samples[1] = cosineHemisphere(seed, normal);
+        samples[2] = cosineHemisphere(seed, normal);
+    }
+
+    samples[3] = cosineHemisphere(seed, normal);
     
     PreweightedMonteCarloSample preweightedSamples[numSamples];
     preweightSamples(preweightedSamples, samples, lights, startPosition, normal);

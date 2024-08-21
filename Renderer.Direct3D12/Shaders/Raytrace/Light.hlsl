@@ -4,7 +4,7 @@
 #include "Structured.hlsl"
 #include "Direction.hlsl"
 
-static const int numLights = 5;
+static const int numLights = 2;
 
 void addLight(LightSource l, inout LightSource lights[numLights])
 {
@@ -29,7 +29,7 @@ void addLight(LightSource l, inout LightSource lights[numLights])
     lights[numLights - 1] = l;
 }
 
-void normalizePower(inout LightSource lights[numLights])
+bool normalizePower(inout LightSource lights[numLights])
 {
     float totalPower = 0;
     
@@ -40,13 +40,15 @@ void normalizePower(inout LightSource lights[numLights])
     }
     
     if (totalPower == 0)
-        return;
+        return false;
     
     [unroll]
     for (uint i = 0; i < numLights; i++)
     {
         lights[i].Power /= totalPower;
     }    
+    
+    return true;
 }
 
 float distanceFactor(float3 origin, float3 position, bool distanceIndependent)
@@ -76,7 +78,7 @@ bool isValidLight(LightSource light)
 }
 
 // True if there's at least one valid light
-void prepareLights(inout LightSource lights[numLights], StructuredBuffer<LightSource> allLights, inout uint seed, float3 origin, float3 normal)
+bool prepareLights(inout LightSource lights[numLights], StructuredBuffer<LightSource> allLights, inout uint seed, float3 origin, float3 normal)
 {
     [unroll]
     for (int i = 0; i < numLights; i++)
@@ -96,5 +98,5 @@ void prepareLights(inout LightSource lights[numLights], StructuredBuffer<LightSo
         addLight(light, lights);
     }
     
-    normalizePower(lights);
+    return normalizePower(lights);
 }
