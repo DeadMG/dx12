@@ -42,7 +42,8 @@ So dividing by PDF gives
 Next Event Estimation (NEE) refers to sampling lights directly. This is effectively assuming that direct lighting matters most.
 BRDF sampling refers to sampling directions where the material reflects most light. e.g. for a Lambertian material, cosine weighting.
 
-When using Multiple Importance Sampling, the desired result for the MC section is
+
+When using Multiple Importance Sampling with the single balance heuristic, the desired result for the MC section is
 $$
 \sum_{D\,\in\,distributions}
    \frac{1}{|S(D)|}
@@ -113,4 +114,74 @@ then this should expand to
 $$
 \sum_{I\,\in\,S}
      \frac{incident(P, I)\,LR\,dot(N, I)}{\pi\,(|S(NEE)|\,PDF(NEE, I) + |S(BRDF)|\,PDF(BRDF, I))}
+$$
+
+
+When using Multiple Importance Sampling, the desired result with power heuristic for the MC section is
+$$
+\sum_{D\,\in\,distributions}
+   \frac{1}{|S(D)|}
+       \sum_{I\,\in\,S(D)}
+           \frac{balance(D, I)\,f(I)}{pdf(D, I)}\\
+
+balance(D, I) =  \frac{|S(D)|^2\,pdf(D, I)^2}{\sum_{J\,\in\,distributions} |S(J)|^2\,pdf(J, I)^2}
+$$
+Given that we have only two distributions, NEE and BRDF, then this should expand to
+
+$$
+\frac{1}{|S(NEE)|}
+    \sum_{I\,\in\,S(NEE)}
+        \frac{balance(NEE, I)\,f(I)}{pdf(NEE, I)}
++
+\frac{1}{|S(BRDF)|}
+    \sum_{I\,\in\,S(BRDF)}
+        \frac{balance(BRDF, I)\,f(I)}{pdf(BRDF, I)}\\
+
+balance(D, I) = \frac{|S(D)|^2\,pdf(D, I)^2}{weight(I)}\\
+weight(I) = |S(NEE)|^2\,pdf(NEE, I)^2 + |S(BRDF)|^2\,pdf(BRDF, I)^2
+$$
+
+which should expand to to
+$$
+\frac{1}{|S(NEE)|}
+    \sum_{I\,\in\,S(NEE)}
+        \frac{|S(NEE)|^2\,pdf(NEE, I)^2\,f(I)}{pdf(NEE, I)\,weight(I)}
++
+\frac{1}{S(BRDF)}
+    \sum_{I\,\in\,S(BRDF)}
+        \frac{|S(BRDF)|^2\,pdf(BRDF, I)^2\,f(I)}{pdf(BRDF, I)\,weight(I)}
+$$
+which should simplify to
+$$
+\frac{1}{|S(NEE)|}
+    \sum_{I\,\in\,S(NEE)}
+        \frac{|S(NEE)|^2\,pdf(NEE, I)\,f(I)}{weight(I)}
++
+\frac{1}{S(BRDF)}
+    \sum_{I\,\in\,S(BRDF)}
+        \frac{|S(BRDF)|^2\,pdf(BRDF, I)\,f(I)}{weight(I)}
+$$  
+which should simplify to
+$$
+
+    \sum_{I\,\in\,S(NEE)}
+        \frac{|S(NEE)|\,pdf(NEE, I)\,f(I)}{weight(I)}
++
+
+    \sum_{I\,\in\,S(BRDF)}
+        \frac{|S(BRDF)|\,pdf(BRDF, I)\,f(I)}{weight(I)}
+$$  
+We can now simplify to
+$$
+\sum_{D\,\in\,distributions}
+    \sum_{I\,\in\,S(D)}
+        \frac{|S(D)|\,pdf(D, I)\,f(I)}{weight(I)}
+$$
+given that $f(I) = incident(P, I)\,\frac{LR}{\pi}\,dot(N, I)$
+
+then this should expand to
+$$
+\sum_{D\,\in\,distributions}
+    \sum_{I\,\in\,S(D)}
+        \frac{|S(D)|\,pdf(D, I)\,incident(P, I)\,LR\,dot(N, I)}{\pi\,weight(I)}
 $$

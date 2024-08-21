@@ -174,7 +174,7 @@ float neePdf(inout LightSource lights[numLights], float3 origin, float3 sampleDi
 }
 
 void preweightSamples(inout PreweightedMonteCarloSample result[numSamples], inout MonteCarloSample samples[numSamples], inout LightSource lights[numLights], float3 origin, float3 normal)
-{
+{    
     int neeSamples = samplesOfDistribution(samples, true);
     int brdfSamples = numSamples - neeSamples;
     
@@ -182,9 +182,17 @@ void preweightSamples(inout PreweightedMonteCarloSample result[numSamples], inou
     {
         MonteCarloSample sample = samples[i];
         
+        // If we have no samples, we have no valid light. This is probably uniform, so this hot-path will
+        // probably actually be hot.
+        float neeWeight = neeSamples == 0 ? 0 : neePdf(lights, origin, sample.direction);
+        float brdfWeight = brdfPdf(normal, sample.direction);
+        
+        int thisDistributionSamples = sample.isNextEventEstimation ? neeSamples : brdfSamples;
+        float thisDistributionPdf = sample.isNextEventEstimation ? neeWeight : brdfWeight;
+        
         PreweightedMonteCarloSample preweighted;
         preweighted.direction = cartesianToDirection(sample.direction);
-        preweighted.weight = dot(normal, sample.direction) / (PI * (neeSamples * neePdf(lights, origin, sample.direction) + brdfSamples * brdfPdf(normal, sample.direction)));
+        preweighted.weight = thisDistributionSamples * thisDistributionPdf * dot(normal, sample.direction) / (PI * (pow2(neeSamples * neeWeight) + pow2(brdfSamples * brdfWeight)));
         result[i] = preweighted;
     }
 }
