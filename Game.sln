@@ -25,7 +25,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Renderer.Direct3D12.Shaders
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Data.Mesh", "Data.Mesh\Data.Mesh.csproj", "{4A9092D3-2C19-4856-A312-FC6F074E2A84}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "Test\Test.csproj", "{3069B8E1-A89C-4C16-AFFC-2C0DE651B0BB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test", "Test\Test.csproj", "{3069B8E1-A89C-4C16-AFFC-2C0DE651B0BB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

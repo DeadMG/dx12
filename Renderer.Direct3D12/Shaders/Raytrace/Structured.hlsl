@@ -70,3 +70,8 @@ int index(int2 location, int width)
 {
     return (location.y * width) + location.x;
 }
+
+int raytracingIndex()
+{
+    return index(DispatchRaysIndex().xy, DispatchRaysDimensions().x);
+}

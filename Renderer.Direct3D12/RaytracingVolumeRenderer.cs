@@ -1,4 +1,5 @@
 ﻿using Data.Space;
+using Renderer.Direct3D12.Shaders;
 using Simulation;
 using Util;
 
@@ -29,6 +30,7 @@ namespace Renderer.Direct3D12
         private readonly Shaders.CameraRayGen rayGenStep;
 
         private readonly Shaders.ObjectStep objectStep;
+        private readonly ScreenSizeDependent<ScreenSizeRaytraceResources> screenRaytraceResources;
 
         public RaytracingVolumeRenderer(DescriptorHeapAccumulator heapAccumulator, MeshResourceCache meshResourceCache, MapResourceCache mapResourceCache, Vortice.Direct3D12.ID3D12Device5 device, CommandListPool directListPool, ScreenSize screenSize, Vortice.DXGI.Format renderTargetFormat)
         {
@@ -44,7 +46,7 @@ namespace Renderer.Direct3D12
             filterShader = disposeTracker.Track(new Shaders.Raytrace.RayGen.Filter(device));
 
             missShaderStep = disposeTracker.Track(new Shaders.MissShaders(mapResourceCache, radianceMiss));
-            rayGenStep = disposeTracker.Track(new Shaders.CameraRayGen(device, screenSize, renderTargetFormat, filterShader, cameraShader));
+            rayGenStep = disposeTracker.Track(new Shaders.CameraRayGen(screenSize, filterShader, cameraShader));
 
             objectStep = disposeTracker.Track(new Shaders.ObjectStep(meshResourceCache, maxRays, objectRadiance, sphereRadiance, sphereIntersection));
 
@@ -69,6 +71,7 @@ namespace Renderer.Direct3D12
                 .Name("Raytrace state object"));
 
             stateObjectProperties = disposeTracker.Track(new StateObjectProperties(state));
+            screenRaytraceResources = disposeTracker.Track(new ScreenSizeDependent<ScreenSizeRaytraceResources>(screenSize, size => new ScreenSizeRaytraceResources(device, size, renderTargetFormat)));
         }
 
         private Shaders.ILibrary[] RaytracingShaders => [objectRadiance, sphereIntersection, sphereRadiance, radianceMiss, cameraShader];
@@ -87,7 +90,8 @@ namespace Renderer.Direct3D12
                 InstanceDescriptions = new List<Vortice.Direct3D12.RaytracingInstanceDescription>(), 
                 List = entry,
                 ShaderTable = entry.DisposeAfterExecution(new ShaderBindingTable(stateObjectProperties)),
-                HeapAccumulator = heapAccumulator
+                HeapAccumulator = heapAccumulator,
+                ScreenSizeRaytraceResources = screenRaytraceResources.GetFor(camera.ScreenSize)
             };
 
             foreach (var step in Steps)
@@ -107,7 +111,7 @@ namespace Renderer.Direct3D12
             dispatchDesc.Height = camera.ScreenSize.Height;
             entry.List.DispatchRays(dispatchDesc);
 
-            var commit = new Shaders.RaytraceCommit { RenderTarget = rp.RenderTarget, List = entry, HeapAccumulator = heapAccumulator };
+            var commit = new Shaders.RaytraceCommit { RenderTarget = rp.RenderTarget, List = entry, HeapAccumulator = heapAccumulator, ScreenSizeRaytraceResources = screenRaytraceResources.GetFor(camera.ScreenSize) };
             foreach (var step in Steps)
             {
                 step.CommitRaytracing(commit);

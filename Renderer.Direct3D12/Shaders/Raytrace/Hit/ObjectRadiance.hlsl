@@ -15,6 +15,7 @@ struct ObjectRadianceParameters
     uint TrianglesIndex;
     uint LightsIndex;
     uint TLASIndex;
+    uint DataIndex;
 };
 
 ConstantBuffer<ObjectRadianceParameters> Settings : register(b0);
@@ -88,7 +89,7 @@ float3 monteCarlo(RaytracingAccelerationStructure SceneBVH, StructuredBuffer<Lig
         samples[1] = cosineHemisphere(seed, normal);
         samples[2] = cosineHemisphere(seed, normal);
     }
-
+    
     samples[3] = cosineHemisphere(seed, normal);
     
     PreweightedMonteCarloSample preweightedSamples[numSamples];
@@ -115,6 +116,14 @@ Triangle LoadTriangle(int index)
 [shader("closesthit")]
 void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes attrib)
 {   
+    if (payload.Depth == 1)
+    {        
+        RWStructuredBuffer<RaytracingOutputData> dataBuffer = ResourceDescriptorHeap[Settings.DataIndex];
+        RaytracingOutputData data;
+        data.Filter = true;
+        dataBuffer[raytracingIndex()] = data;
+    }
+    
     Triangle t = LoadTriangle(PrimitiveIndex());
     
     uint2 index = DispatchRaysIndex().xy;

@@ -150,7 +150,7 @@ namespace Application
             {
             };
 
-            using (var renderer = await platform.CreateRenderer(window, standardOptions))
+            using (var renderer = await platform.CreateRenderer(window, nSightOptions))
             using (var cts = new CancellationTokenSource())
             {
                 var renderLoop = CoreLoop(renderer, listener, scenario, uiState, controlScheme, cts.Token);

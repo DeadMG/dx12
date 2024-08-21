@@ -56,6 +56,7 @@ namespace Renderer.Direct3D12.Shaders
 
         public void PrepareRaytracing(RaytracePreparation preparation)
         {
+            var dataIndex = preparation.HeapAccumulator.AddStructuredBuffer(preparation.ScreenSizeRaytraceResources.Data, preparation.ScreenSizeRaytraceResources.DataSrv);
             var lights = preparation.Volume.Units.Select(u => LightSource(u, preparation.HeapAccumulator, preparation.List)).Concat(preparation.Volume.Map.Objects.Select(o => LightSource(o, preparation.HeapAccumulator, preparation.List))).Where(s => s.Power > 0).ToArray();
             var lightBuffer = preparation.List.DisposeAfterExecution(preparation.List.CreateUploadBuffer(lights));
             var lightIndex = preparation.HeapAccumulator.AddStructuredBuffer(lightBuffer, new Vortice.Direct3D12.BufferShaderResourceView { NumElements = lights.Length, StructureByteStride = Marshal.SizeOf<Data.LightSource>() });
@@ -64,7 +65,7 @@ namespace Renderer.Direct3D12.Shaders
                 .Select(u => new InstanceDescription
                 {
                     BLAS = GetBLAS(u.Blueprint.Name, u.Blueprint.Mesh, preparation.List),
-                    HitGroup = GetHitGroup(preparation.ShaderTable, lightIndex, preparation.Volume.Map.AmbientLightLevel, preparation.HeapAccumulator, u.WorldMatrix, u.Blueprint.Mesh, preparation.List),
+                    HitGroup = GetHitGroup(preparation.ShaderTable, lightIndex, dataIndex, preparation.Volume.Map.AmbientLightLevel, preparation.HeapAccumulator, u.WorldMatrix, u.Blueprint.Mesh, preparation.List),
                     Transform = u.WorldMatrix
                 });
 
@@ -72,7 +73,7 @@ namespace Renderer.Direct3D12.Shaders
                 .Select(o => new InstanceDescription
                 {
                     BLAS = GetBLAS(o.Name, o.Geometry, preparation.List),
-                    HitGroup = GetHitGroup(preparation.ShaderTable, lightIndex, preparation.Volume.Map.AmbientLightLevel, preparation.HeapAccumulator, o.WorldMatrix, o.Geometry, preparation.List),
+                    HitGroup = GetHitGroup(preparation.ShaderTable, lightIndex, dataIndex, preparation.Volume.Map.AmbientLightLevel, preparation.HeapAccumulator, o.WorldMatrix, o.Geometry, preparation.List),
                     Transform = o.WorldMatrix
                 });
 
@@ -91,27 +92,27 @@ namespace Renderer.Direct3D12.Shaders
             preparation.InstanceDescriptions.AddRange(instances);
         }
 
-        private int GetHitGroup(ShaderBindingTable shaderTable, uint lightIndex, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Matrix4x4 worldMatrix, IGeometry geometry, PooledCommandList list)
+        private int GetHitGroup(ShaderBindingTable shaderTable, uint lightIndex, uint dataIndex, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Matrix4x4 worldMatrix, IGeometry geometry, PooledCommandList list)
         {
-            return PrepareHitGroup(shaderTable, lightIndex, ambientLight, heapAccumulator, worldMatrix, geometry, list);
+            return PrepareHitGroup(shaderTable, lightIndex, dataIndex, ambientLight, heapAccumulator, worldMatrix, geometry, list);
         }
 
-        private int PrepareHitGroup(ShaderBindingTable shaderTable, uint lightIndex, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Matrix4x4 worldMatrix, IGeometry geometry, PooledCommandList list)
+        private int PrepareHitGroup(ShaderBindingTable shaderTable, uint lightIndex, uint dataIndex, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Matrix4x4 worldMatrix, IGeometry geometry, PooledCommandList list)
         {
             if (geometry is SphereGeometry sphere)
             {
-                return PrepareSphereHitGroup(shaderTable, worldMatrix, sphere);
+                return PrepareSphereHitGroup(shaderTable, dataIndex, worldMatrix, sphere);
             }
 
             if (geometry is Mesh mesh)
             {
-                return PrepareMeshHitGroup(shaderTable, lightIndex, worldMatrix, ambientLight, heapAccumulator, mesh, list);
+                return PrepareMeshHitGroup(shaderTable, lightIndex, dataIndex,  worldMatrix, ambientLight, heapAccumulator, mesh, list);
             }
 
             throw new InvalidOperationException();
         }
 
-        private int PrepareSphereHitGroup(ShaderBindingTable shaderTable, Matrix4x4 worldMatrix, SphereGeometry sphere)
+        private int PrepareSphereHitGroup(ShaderBindingTable shaderTable, uint dataIndex, Matrix4x4 worldMatrix, SphereGeometry sphere)
         {
             var pos = Vector3.Transform(new Vector3(0, 0, 0), worldMatrix);
             var size = Vector3.TransformNormal(new Vector3(1, 0, 0), worldMatrix).Length();
@@ -122,12 +123,13 @@ namespace Renderer.Direct3D12.Shaders
                 EmissionStrength = sphere.Material.EmissionStrength,
                 Colour = sphere.Material.Colour,
                 EmissionColour = sphere.Material.EmissionColour,
+                DataIndex = dataIndex,
             }.GetBytes();
 
             return shaderTable.AddHit("SphereRadiance", parameters);
         }
 
-        private int PrepareMeshHitGroup(ShaderBindingTable shaderTable, uint lightIndex, Matrix4x4 worldMatrix, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Mesh mesh, PooledCommandList list)
+        private int PrepareMeshHitGroup(ShaderBindingTable shaderTable, uint lightIndex, uint dataIndex, Matrix4x4 worldMatrix, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Mesh mesh, PooledCommandList list)
         {
             var meshData = meshResourceCache.Load(mesh, list);
 
@@ -140,6 +142,7 @@ namespace Renderer.Direct3D12.Shaders
                 WorldMatrix = Matrix4x4.Transpose(worldMatrix),
                 TLASIndex = heapAccumulator.AddRaytracingStructure(tlas),
                 TrianglesIndex = heapAccumulator.AddStructuredBuffer(meshData.TriangleBuffer, meshData.TriangleSRV),
+                DataIndex = dataIndex,
             }.GetBytes();
 
             return shaderTable.AddHit("ObjectRadiance", parameters);

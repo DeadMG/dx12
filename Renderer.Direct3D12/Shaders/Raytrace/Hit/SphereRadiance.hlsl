@@ -1,4 +1,5 @@
 #include "SphereHitGroup.hlsl"
+#include "../Structured.hlsl"
 #include "../Ray.hlsl"
 
 ConstantBuffer<SphereHitGroupParameters> Sphere : register(b0);
@@ -8,6 +9,11 @@ void SphereRadianceClosestHit(inout RadiancePayload payload, SphereAttributes at
 {
     if (GetDepth(payload) == 1)
     {
+        RWStructuredBuffer<RaytracingOutputData> dataBuffer = ResourceDescriptorHeap[Sphere.DataIndex];
+        RaytracingOutputData data;
+        data.Filter = false;
+        dataBuffer[raytracingIndex()] = data;
+        
         payload.IncomingLight = Sphere.Colour;
     }
     else

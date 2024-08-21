@@ -10,8 +10,7 @@ struct CameraMatrices
     float3 WorldBottomLeft;
     
     float3 Origin;
-        
-    uint DataIndex;
+
     uint OutputIndex;
     uint PreviousIndex;
     uint SceneBVHIndex;
@@ -32,8 +31,6 @@ void RayGen()
 // Raytracing acceleration structure, accessed as a SRV
     RaytracingAccelerationStructure SceneBVH = ResourceDescriptorHeap[Camera.SceneBVHIndex];
     
-    RWStructuredBuffer<RaytracingOutputData> data = ResourceDescriptorHeap[Camera.DataIndex];
-    
     // Get the location within the dispatched 2D grid of work items
     // (often maps to pixels, so this could represent a pixel coordinate).
     uint2 launchIndex = DispatchRaysIndex().xy;
@@ -51,7 +48,6 @@ void RayGen()
     
     RadiancePayload payload;
     payload.IncomingLight = float3(0, 0, 0);
-    payload.Filter = 1;
     payload.Depth = 1;
     
     RayDesc ray;
@@ -71,10 +67,6 @@ void RayGen()
         payload);
     
     float3 thisFrame = lerp(payload.IncomingLight, previousFilter[launchIndex].rgb, float3(0.7, 0.7, 0.7));
-    RaytracingOutputData outputData;
-    outputData.Filter = Filter(payload);
     
-    int dataIndex = index(launchIndex, DispatchRaysDimensions().x);
-    data[dataIndex] = outputData;
     output[launchIndex] = float4(thisFrame, 1.0f);
 }

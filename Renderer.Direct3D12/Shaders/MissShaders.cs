@@ -26,8 +26,9 @@ namespace Renderer.Direct3D12.Shaders
         {
             var mapData = mapResourceCache.Get(preparation.Volume.Map, preparation.List);
 
-            var parameters = new Data.StarfieldParameters 
-            { 
+            var parameters = new Data.StarfieldParameters
+            {
+                DataIndex = preparation.HeapAccumulator.AddStructuredBuffer(preparation.ScreenSizeRaytraceResources.Data, preparation.ScreenSizeRaytraceResources.DataSrv),
                 NoiseScale = preparation.Volume.Map.StarfieldNoiseScale,
                 NoiseCutoff = preparation.Volume.Map.StarfieldNoiseCutoff,
                 TemperatureScale = preparation.Volume.Map.StarfieldTemperatureScale,

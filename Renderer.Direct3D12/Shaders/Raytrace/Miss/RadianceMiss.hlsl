@@ -11,6 +11,7 @@ struct StarfieldParameters
     uint Seed;
     float AmbientLight;
     uint CategoryIndex;
+    uint DataIndex;
 };
 
 ConstantBuffer<StarfieldParameters> Parameters : register(b0);
@@ -102,7 +103,12 @@ void RadianceMiss(inout RadiancePayload payload)
 {
     // Direct camera ray
     if (GetDepth(payload) == 1)
-    {
+    {    
+        RWStructuredBuffer<RaytracingOutputData> dataBuffer = ResourceDescriptorHeap[Parameters.DataIndex];
+        RaytracingOutputData data;
+        data.Filter = false;
+        dataBuffer[raytracingIndex()] = data;
+        
         float3 direction = normalize(WorldRayDirection());
         
         float theta = acos(direction.z) / (2 * PI);
@@ -112,7 +118,7 @@ void RadianceMiss(inout RadiancePayload payload)
         float brightness = spotNoise(spherical, Parameters.NoiseScale, Parameters.NoiseCutoff);
         float distribution = spotNoise(spherical, Parameters.TemperatureScale, 0);
         
-        StopFilter(payload, brightness * colour(distribution));
+        payload.IncomingLight = brightness * colour(distribution);
     }
     else
     {
