@@ -107,6 +107,8 @@ void RadianceMiss(inout RadiancePayload payload)
         RWStructuredBuffer<RaytracingOutputData> dataBuffer = ResourceDescriptorHeap[Parameters.DataIndex];
         RaytracingOutputData data;
         data.Filter = false;
+        data.Normal = float3(0, 0, 0);
+        data.Position = float3(0, 0, 0);
         dataBuffer[raytracingIndex()] = data;
         
         float3 direction = normalize(WorldRayDirection());

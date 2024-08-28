@@ -37,6 +37,7 @@ MonteCarloSample cone(inout uint seed, float3 direction, float angle)
 {
     float eta = uniformRand(seed);
     Spherical weighted;
+    weighted.r = 1;
     weighted.elevation = acos((1 - eta) + (eta * cos(angle)));
     weighted.azimuth = 2 * PI * uniformRand(seed);
     

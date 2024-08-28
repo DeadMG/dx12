@@ -73,8 +73,9 @@ namespace Renderer.Direct3D12
                 offset += missEntrySize;
             }
 
-            var upload = tracker.Track(list.CreateUploadBuffer(data).Name("SBT upload"));
-            list.List.CopyResource(result, upload);
+            var upload = list.CreateUploadBuffer(data).Name("SBT upload");
+            tracker.Track(upload.Buffer);
+            list.List.CopyResource(result, upload.Buffer);
             list.List.ResourceBarrierTransition(result, Vortice.Direct3D12.ResourceStates.CopyDest, Vortice.Direct3D12.ResourceStates.NonPixelShaderResource);
 
             return new Vortice.Direct3D12.DispatchRaysDescription

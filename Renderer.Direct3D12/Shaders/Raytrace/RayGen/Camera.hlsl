@@ -12,7 +12,6 @@ struct CameraMatrices
     float3 Origin;
 
     uint OutputIndex;
-    uint PreviousIndex;
     uint SceneBVHIndex;
 };
 
@@ -24,9 +23,6 @@ void RayGen()
 {
 // Raytracing output texture, accessed as a UAV
     RWTexture2D<float4> output = ResourceDescriptorHeap[Camera.OutputIndex];
-
-// Bilteral filter texture as UAV
-    RWTexture2D<float4> previousFilter = ResourceDescriptorHeap[Camera.PreviousIndex];
 
 // Raytracing acceleration structure, accessed as a SRV
     RaytracingAccelerationStructure SceneBVH = ResourceDescriptorHeap[Camera.SceneBVHIndex];
@@ -62,9 +58,7 @@ void RayGen()
         0,
         0,
         ray,
-        payload);
-    
-    float3 thisFrame = lerp(GetColour(payload).rgb, previousFilter[launchIndex].rgb, float3(0.7, 0.7, 0.7));
-    
-    output[launchIndex] = float4(thisFrame, 1.0f);
+        payload);    
+   
+    output[launchIndex] = GetColour(payload);
 }

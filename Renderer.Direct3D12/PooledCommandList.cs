@@ -28,6 +28,12 @@ namespace Renderer.Direct3D12
             return resource;
         }
 
+        public StructuredBuffer DisposeAfterExecution(StructuredBuffer buffer)
+        {
+            DisposeAfterExecutionAsync(buffer.Buffer);
+            return buffer;
+        }
+
         private async void DisposeAfterExecutionAsync(IDisposable resource)
         {
             using (resource)
@@ -40,13 +46,14 @@ namespace Renderer.Direct3D12
         public StructuredBuffer UploadData<T>(Vortice.Direct3D12.ID3D12Resource resource, IReadOnlyList<T> data)
             where T : unmanaged
         {
-            var tempResource = DisposeAfterExecution(CreateUploadBuffer(data));
+            var existingBuffer = CreateUploadBuffer(data);
+            var tempResource = DisposeAfterExecution(existingBuffer.Buffer);
             commandList.CopyResource(resource, tempResource);
             commandList.ResourceBarrier(new Vortice.Direct3D12.ResourceBarrier(new Vortice.Direct3D12.ResourceTransitionBarrier(resource, Vortice.Direct3D12.ResourceStates.CopyDest, Vortice.Direct3D12.ResourceStates.Common)));
-            return new StructuredBuffer(resource, new Vortice.Direct3D12.BufferShaderResourceView { NumElements = data.Count, StructureByteStride = Marshal.SizeOf<T>() });
+            return new StructuredBuffer(resource, existingBuffer.SRV);
         }
 
-        public Vortice.Direct3D12.ID3D12Resource CreateUploadBuffer<T>(IReadOnlyList<T> data, uint alignment = 1)
+        public StructuredBuffer CreateUploadBuffer<T>(IReadOnlyList<T> data, uint alignment = 1)
             where T : unmanaged
         {
             var size = alignment == 1 ? data.SizeOf() : data.SizeOf().Align(alignment);
@@ -62,7 +69,7 @@ namespace Renderer.Direct3D12
             }
             tempResource.Unmap(0);
 
-            return tempResource;
+            return new StructuredBuffer(tempResource, new Vortice.Direct3D12.BufferShaderResourceView { NumElements = data.Count, StructureByteStride = Marshal.SizeOf<T>() });
         }
     }
 }

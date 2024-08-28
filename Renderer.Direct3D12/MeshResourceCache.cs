@@ -48,7 +48,7 @@ namespace Renderer.Direct3D12
                         Flags = Vortice.Direct3D12.RaytracingGeometryFlags.Opaque,
                         Triangles = new Vortice.Direct3D12.RaytracingGeometryTrianglesDescription
                         {
-                            IndexBuffer = indexBuffer.GPUVirtualAddress,
+                            IndexBuffer = indexBuffer.Buffer.GPUVirtualAddress,
                             IndexCount = indices.Length,
                             IndexFormat = IndexFormat(mesh.Triangles[0].Vertices[0].GetType()),
                             VertexBuffer = new Vortice.Direct3D12.GpuVirtualAddressAndStride

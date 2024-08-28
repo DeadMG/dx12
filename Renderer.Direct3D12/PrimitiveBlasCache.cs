@@ -28,7 +28,7 @@ namespace Renderer.Direct3D12
                             AABBCount = 1,
                             AABBs = new Vortice.Direct3D12.GpuVirtualAddressAndStride 
                             {
-                                StartAddress = sphereAabb.GPUVirtualAddress,
+                                StartAddress = sphereAabb.Buffer.GPUVirtualAddress,
                                 StrideInBytes = (ulong)Marshal.SizeOf<PrimitiveAabb>()
                             },
                         },

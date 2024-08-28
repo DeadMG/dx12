@@ -114,27 +114,31 @@ Triangle LoadTriangle(int index)
 
 [shader("closesthit")]
 void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes attrib)
-{   
-    if (GetDepth(payload) == 1)
+{
+    uint depth = GetDepth(payload);
+    
+    Triangle t = LoadTriangle(PrimitiveIndex());
+    float3 startPosition = WorldRayOrigin() + (RayTCurrent() * WorldRayDirection());
+    float3 normal = alignWith(-WorldRayDirection(), normalMul(t.Normal, Settings.WorldMatrix));
+    
+    if (depth == 1)
     {        
         RWStructuredBuffer<RaytracingOutputData> dataBuffer = ResourceDescriptorHeap[Settings.DataIndex];
         RaytracingOutputData data;
         data.Filter = true;
+        data.Position = startPosition;
+        data.Normal = normal;
         dataBuffer[raytracingIndex()] = data;
     }
     
-    Triangle t = LoadTriangle(PrimitiveIndex());
     
     uint2 index = DispatchRaysIndex().xy;
     
-    float3 startPosition = WorldRayOrigin() + (RayTCurrent() * WorldRayDirection());
-    float3 normal = alignWith(-WorldRayDirection(), normalMul(t.Normal, Settings.WorldMatrix));
-    
-    Return(payload, min(GetColour(payload).rgb + (t.EmissionStrength * t.EmissionColour), float3(1, 1, 1)));
+    Return(payload, min(t.EmissionStrength * t.EmissionColour, float3(1, 1, 1)));
     
     uint seed = Settings.Seed * pow2(index.x + 1u) * pow2(index.y + 1u);
     
-    float3 incomingLight = monteCarlo(ResourceDescriptorHeap[Settings.TLASIndex], ResourceDescriptorHeap[Settings.LightsIndex], GetDepth(payload), normal, startPosition, seed);
+    float3 incomingLight = monteCarlo(ResourceDescriptorHeap[Settings.TLASIndex], ResourceDescriptorHeap[Settings.LightsIndex], depth, normal, startPosition, seed);
     
     Return(payload, min(GetColour(payload).rgb + (incomingLight * t.Colour), float3(1, 1, 1)));
 }

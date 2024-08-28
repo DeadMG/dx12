@@ -46,7 +46,6 @@ void Return(inout RadiancePayload payload, float4 colour)
 void Return(inout RadiancePayload payload, float3 colour)
 {
     Return(payload, float4(colour, 1));
-
 }
 
 float4 GetColour(RadiancePayload payload)

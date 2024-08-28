@@ -71,6 +71,7 @@
   <Import Project="Renderer.Direct3D12.Generation.proj" />
 
   <ItemGroup>
+    <UpToDateCheckInput Remove="shaders\raytrace\Atrous.hlsl" />
     <UpToDateCheckInput Remove="Shaders\Raytrace\Direction.hlsl" />
   </ItemGroup>
 </Project>

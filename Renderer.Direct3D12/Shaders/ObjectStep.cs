@@ -56,10 +56,10 @@ namespace Renderer.Direct3D12.Shaders
 
         public void PrepareRaytracing(RaytracePreparation preparation)
         {
-            var dataIndex = preparation.HeapAccumulator.AddStructuredBuffer(preparation.ScreenSizeRaytraceResources.Data);
+            var dataIndex = preparation.HeapAccumulator.AddStructuredBuffer(preparation.Data);
             var lights = preparation.Volume.Units.Select(u => LightSource(u, preparation.HeapAccumulator, preparation.List)).Concat(preparation.Volume.Map.Objects.Select(o => LightSource(o, preparation.HeapAccumulator, preparation.List))).Where(s => s.Power > 0).ToArray();
             var lightBuffer = preparation.List.DisposeAfterExecution(preparation.List.CreateUploadBuffer(lights));
-            var lightIndex = preparation.HeapAccumulator.AddStructuredBuffer(new StructuredBuffer(lightBuffer, new Vortice.Direct3D12.BufferShaderResourceView { NumElements = lights.Length, StructureByteStride = Marshal.SizeOf<Data.LightSource>() }));
+            var lightIndex = preparation.HeapAccumulator.AddStructuredBuffer(lightBuffer);
 
             var unitInstances = preparation.Volume.Units
                 .Select(u => new InstanceDescription
@@ -190,7 +190,7 @@ namespace Renderer.Direct3D12.Shaders
                 DistanceIndependent = false,
                 Size = meshData.Size,
                 Position = pos,
-                Power = meshData.Power,
+                Power = 0,
             };
         }
 

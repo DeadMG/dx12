@@ -12,6 +12,8 @@ void SphereRadianceClosestHit(inout RadiancePayload payload, SphereAttributes at
         RWStructuredBuffer<RaytracingOutputData> dataBuffer = ResourceDescriptorHeap[Sphere.DataIndex];
         RaytracingOutputData data;
         data.Filter = false;
+        data.Normal = float3(0, 0, 0);
+        data.Position = float3(0, 0, 0);
         dataBuffer[raytracingIndex()] = data;
         
         Return(payload, Sphere.Colour);

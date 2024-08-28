@@ -25,6 +25,7 @@ namespace Renderer.Direct3D12
         private readonly Shaders.Raytrace.RayGen.Camera cameraShader;
         private readonly Shaders.Raytrace.RayGen.Filter filterShader;
         private readonly Shaders.Raytrace.Miss.RadianceMiss radianceMiss;
+        private readonly Shaders.Raytrace.RayGen.Atrous atrousShader;
 
         private readonly Shaders.MissShaders missShaderStep;
         private readonly Shaders.CameraRayGen rayGenStep;
@@ -44,9 +45,10 @@ namespace Renderer.Direct3D12
             cameraShader = disposeTracker.Track(new Shaders.Raytrace.RayGen.Camera(device));
             radianceMiss = disposeTracker.Track(new Shaders.Raytrace.Miss.RadianceMiss(device));
             filterShader = disposeTracker.Track(new Shaders.Raytrace.RayGen.Filter(device));
+            atrousShader = disposeTracker.Track(new Shaders.Raytrace.RayGen.Atrous(device));
 
             missShaderStep = disposeTracker.Track(new Shaders.MissShaders(mapResourceCache, radianceMiss));
-            rayGenStep = disposeTracker.Track(new Shaders.CameraRayGen(filterShader, cameraShader));
+            rayGenStep = disposeTracker.Track(new Shaders.CameraRayGen(filterShader, cameraShader, atrousShader));
 
             objectStep = disposeTracker.Track(new Shaders.ObjectStep(meshResourceCache, maxRays, objectRadiance, sphereRadiance, sphereIntersection));
 
@@ -83,6 +85,9 @@ namespace Renderer.Direct3D12
 
             var entry = directListPool.GetCommandList();
 
+            var frameData = screenRaytraceResources.GetFor(camera.ScreenSize);
+            var frames = frameData.RetrieveFrames(camera.ViewProjection, camera.InvViewProjection);
+
             var preparation = new Shaders.RaytracePreparation 
             { 
                 Camera = camera, 
@@ -91,7 +96,9 @@ namespace Renderer.Direct3D12
                 List = entry,
                 ShaderTable = entry.DisposeAfterExecution(new ShaderBindingTable(stateObjectProperties)),
                 HeapAccumulator = heapAccumulator,
-                ScreenSizeRaytraceResources = screenRaytraceResources.GetFor(camera.ScreenSize)
+                FilterSrv = frameData.FilterSrv,
+                RayGenSrv = frameData.RayGenSrv,
+                Data = frames[0].Data,
             };
 
             foreach (var step in Steps)
@@ -116,8 +123,10 @@ namespace Renderer.Direct3D12
                 RenderTarget = rp.RenderTarget, 
                 List = entry, 
                 HeapAccumulator = heapAccumulator,
-                ScreenSizeRaytraceResources = screenRaytraceResources.GetFor(camera.ScreenSize),
-                ScreenSize = camera.ScreenSize
+                ScreenSize = camera.ScreenSize,
+                Frames = frames,
+                FilterSrv = frameData.FilterSrv,
+                RayGenSrv = frameData.RayGenSrv,
             };
             foreach (var step in Steps)
             {
@@ -137,7 +146,7 @@ namespace Renderer.Direct3D12
                 Flags = Vortice.Direct3D12.RaytracingAccelerationStructureBuildFlags.None,
                 Layout = Vortice.Direct3D12.ElementsLayout.Array,
                 Type = Vortice.Direct3D12.RaytracingAccelerationStructureType.TopLevel,
-                InstanceDescriptions = instances.GPUVirtualAddress,
+                InstanceDescriptions = instances.Buffer.GPUVirtualAddress,
             };
 
             var prebuild = device.GetRaytracingAccelerationStructurePrebuildInfo(asDesc);
