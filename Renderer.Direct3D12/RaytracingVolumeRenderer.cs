@@ -1,7 +1,9 @@
 ﻿using Data.Space;
 using Renderer.Direct3D12.Shaders;
 using Simulation;
+using Simulation.Physics;
 using Util;
+using static Renderer.Direct3D12.Shaders.ScreenSizeRaytraceResources;
 
 namespace Renderer.Direct3D12
 {
@@ -13,6 +15,7 @@ namespace Renderer.Direct3D12
         private readonly CommandListPool directListPool;
         private readonly Vortice.Direct3D12.ID3D12Device5 device;
         private readonly DescriptorHeapAccumulator heapAccumulator;
+        private readonly MapResourceCache mapResourceCache;
 
         private readonly Vortice.Direct3D12.ID3D12RootSignature emptyGlobalSignature;
         private readonly Vortice.Direct3D12.ID3D12StateObject state;
@@ -23,32 +26,29 @@ namespace Renderer.Direct3D12
         private readonly Shaders.Raytrace.Hit.SphereIntersection sphereIntersection;
         private readonly Shaders.Raytrace.Hit.SphereRadiance sphereRadiance;
         private readonly Shaders.Raytrace.RayGen.Camera cameraShader;
-        private readonly Shaders.Raytrace.RayGen.Filter filterShader;
+        private readonly Shaders.Raytrace.Filtering.Filter filterShader;
         private readonly Shaders.Raytrace.Miss.RadianceMiss radianceMiss;
-        private readonly Shaders.Raytrace.RayGen.Atrous atrousShader;
-
-        private readonly Shaders.MissShaders missShaderStep;
-        private readonly Shaders.CameraRayGen rayGenStep;
+        private readonly Shaders.Raytrace.Filtering.Atrous atrousShader;
 
         private readonly Shaders.ObjectStep objectStep;
         private readonly ScreenSizeDependent<ScreenSizeRaytraceResources> screenRaytraceResources;
+
+        private int frameCount = 0;
 
         public RaytracingVolumeRenderer(DescriptorHeapAccumulator heapAccumulator, MeshResourceCache meshResourceCache, MapResourceCache mapResourceCache, Vortice.Direct3D12.ID3D12Device5 device, CommandListPool directListPool, ScreenSize screenSize, Vortice.DXGI.Format renderTargetFormat)
         {
             this.directListPool = directListPool;
             this.device = device;
             this.heapAccumulator = heapAccumulator;
+            this.mapResourceCache = mapResourceCache;
 
             objectRadiance = disposeTracker.Track(new Shaders.Raytrace.Hit.ObjectRadiance(device));
             sphereIntersection = disposeTracker.Track(new Shaders.Raytrace.Hit.SphereIntersection(device));
             sphereRadiance = disposeTracker.Track(new Shaders.Raytrace.Hit.SphereRadiance(device));
             cameraShader = disposeTracker.Track(new Shaders.Raytrace.RayGen.Camera(device));
             radianceMiss = disposeTracker.Track(new Shaders.Raytrace.Miss.RadianceMiss(device));
-            filterShader = disposeTracker.Track(new Shaders.Raytrace.RayGen.Filter(device));
-            atrousShader = disposeTracker.Track(new Shaders.Raytrace.RayGen.Atrous(device));
-
-            missShaderStep = disposeTracker.Track(new Shaders.MissShaders(mapResourceCache, radianceMiss));
-            rayGenStep = disposeTracker.Track(new Shaders.CameraRayGen(filterShader, cameraShader, atrousShader));
+            filterShader = disposeTracker.Track(new Shaders.Raytrace.Filtering.Filter(device));
+            atrousShader = disposeTracker.Track(new Shaders.Raytrace.Filtering.Atrous(device));
 
             objectStep = disposeTracker.Track(new Shaders.ObjectStep(meshResourceCache, maxRays, objectRadiance, sphereRadiance, sphereIntersection));
 
@@ -68,7 +68,7 @@ namespace Renderer.Direct3D12
             state = disposeTracker.Track(device.CreateStateObject(new Vortice.Direct3D12.StateObjectDescription(Vortice.Direct3D12.StateObjectType.RaytracingPipeline,
                 RaytracingShaders.SelectMany(s => s.CreateStateObjects())
                     .Concat(fixedSubobjects)
-                    .Concat(Steps.SelectMany(s => s.CreateStateObjects()))
+                    .Concat(objectStep.CreateStateObjects())
                     .ToArray()))
                 .Name("Raytrace state object"));
 
@@ -77,72 +77,148 @@ namespace Renderer.Direct3D12
         }
 
         private Shaders.ILibrary[] RaytracingShaders => [objectRadiance, sphereIntersection, sphereRadiance, radianceMiss, cameraShader];
-        private Shaders.IRaytracingPipelineStep[] Steps => [missShaderStep, rayGenStep, objectStep];
 
         public void Render(RendererParameters rp, Volume volume, Camera camera)
         {
             if (volume == null) return;
 
             var entry = directListPool.GetCommandList();
-
             var frameData = screenRaytraceResources.GetFor(camera.ScreenSize);
-            var frames = frameData.RetrieveFrames(camera.ViewProjection, camera.InvViewProjection);
+            var shaderTable = entry.DisposeAfterExecution(new ShaderBindingTable(stateObjectProperties));
 
-            var preparation = new Shaders.RaytracePreparation 
-            { 
-                Camera = camera, 
-                Volume = volume, 
-                InstanceDescriptions = new List<Vortice.Direct3D12.RaytracingInstanceDescription>(), 
-                List = entry,
-                ShaderTable = entry.DisposeAfterExecution(new ShaderBindingTable(stateObjectProperties)),
-                HeapAccumulator = heapAccumulator,
-                FilterSrv = frameData.FilterSrv,
-                RayGenSrv = frameData.RayGenSrv,
-                Data = frames[0].Data,
-            };
-
-            foreach (var step in Steps)
+            using (var dataLease = frameData.ResourcePool.LeaseResource(frameData.FrameDataKey, $"Frame {frameCount} data buffer"))
             {
-                step.PrepareRaytracing(preparation);
-            }
+                var outputTextureLease = frameData.ResourcePool.LeaseResource(frameData.FrameTextureKey, $"Frame {frameCount} raytrace output texture");
 
-            var tlas = CreateTLAS(preparation);
+                AddRayGen(shaderTable, camera);
+                AddMissShader(volume, shaderTable, outputTextureLease, dataLease, entry);
+                var instanceDescriptions = objectStep.PrepareRaytracing(volume, heapAccumulator, entry, shaderTable, outputTextureLease, dataLease).ToArray();
 
-            entry.List.SetDescriptorHeaps(heapAccumulator.GetHeaps());
-            entry.List.SetComputeRootSignature(emptyGlobalSignature);
-            entry.List.SetPipelineState1(state);
+                var tlas = CreateTLAS(instanceDescriptions, entry);
 
-            var dispatchDesc = preparation.ShaderTable.Create(device, tlas, entry);
-            dispatchDesc.Depth = 1;
-            dispatchDesc.Width = camera.ScreenSize.Width;
-            dispatchDesc.Height = camera.ScreenSize.Height;
-            entry.List.DispatchRays(dispatchDesc);
+                entry.List.SetDescriptorHeaps(heapAccumulator.GetHeaps());
+                entry.List.SetComputeRootSignature(emptyGlobalSignature);
+                entry.List.SetPipelineState1(state);
 
-            var commit = new Shaders.RaytraceCommit 
-            { 
-                RenderTarget = rp.RenderTarget, 
-                List = entry, 
-                HeapAccumulator = heapAccumulator,
-                ScreenSize = camera.ScreenSize,
-                Frames = frames,
-                FilterSrv = frameData.FilterSrv,
-                RayGenSrv = frameData.RayGenSrv,
-            };
-            foreach (var step in Steps)
-            {
-                step.CommitRaytracing(commit);
+                var dispatchDesc = shaderTable.Create(device, tlas, entry);
+                dispatchDesc.Depth = 1;
+                dispatchDesc.Width = camera.ScreenSize.Width;
+                dispatchDesc.Height = camera.ScreenSize.Height;
+                entry.List.DispatchRays(dispatchDesc);
+
+                Filter(entry, camera, heapAccumulator, frameData, outputTextureLease, dataLease, rp.RenderTarget);
             }
 
             entry.Execute();
+
+            frameCount++;
         }
 
-        private Vortice.Direct3D12.ID3D12Resource CreateTLAS(Shaders.RaytracePreparation preparation)
+        private void Filter(PooledCommandList entry, Camera camera, DescriptorHeapAccumulator heapAccumulator, ScreenSizeRaytraceResources resources, ResourcePool.ResourceLifetime<IlluminanceTextureKey> input, ResourcePool.ResourceLifetime<GBufferKey> inputData, Vortice.Direct3D12.ID3D12Resource renderTarget)
         {
-            var instances = preparation.List.DisposeAfterExecution(preparation.List.CreateUploadBuffer(preparation.InstanceDescriptions)).Name("TLAS prep buffer");
+            entry.List.ResourceBarrierUnorderedAccessView(input.Resource);
+
+            entry.List.SetPipelineState(atrousShader.PipelineState);
+            entry.List.SetComputeRootSignature(atrousShader.RootSignature);
+
+            ResourcePool.ResourceLifetime<IlluminanceTextureKey> output;
+
+            for (int i = 0; i < 5; i++)
+            {
+                output = resources.ResourcePool.LeaseResource(resources.FrameTextureKey, $"{frameCount} a-trous output buffer {i}");
+
+                var stepFactor = (float)Math.Pow(2, -i);
+
+                entry.List.SetComputeRoot32BitConstants(0, [new Shaders.Data.AtrousRootParameters
+                {
+                    ImageHeight = (uint)camera.ScreenSize.Height,
+                    ImageWidth = (uint)camera.ScreenSize.Width,
+                    StepWidth = i,
+                    CPhi = stepFactor * 1000000.0f,
+                    NPhi = 0.01f,
+                    OutputTextureIndex = heapAccumulator.AddUAV(output.Resource, output.Key.UAV),
+                    InputDataIndex = heapAccumulator.AddUAV(inputData.Resource, inputData.Key.UAV),
+                    InputTextureIndex = heapAccumulator.AddUAV(input.Resource, input.Key.UAV),
+                }]);
+                entry.List.Dispatch((int)Math.Ceiling(camera.ScreenSize.Width / (float)32), (int)Math.Ceiling(camera.ScreenSize.Height / (float)32), 1);
+
+                entry.List.ResourceBarrierUnorderedAccessView(output.Resource);
+
+                input.Dispose();
+                input = output;
+            }
+
+            using (var outputTextureLease = resources.ResourcePool.LeaseResource(resources.FrameTextureKey, $"{frameCount} output texture"))
+            {
+                entry.List.ResourceBarrier([
+                    new Vortice.Direct3D12.ResourceBarrier(new Vortice.Direct3D12.ResourceTransitionBarrier(outputTextureLease.Resource, Vortice.Direct3D12.ResourceStates.CopySource, Vortice.Direct3D12.ResourceStates.UnorderedAccess))
+                ]);
+
+                entry.List.SetPipelineState(filterShader.PipelineState);
+                entry.List.SetComputeRootSignature(filterShader.RootSignature);
+                entry.List.SetComputeRoot32BitConstants(0, [new Shaders.Data.FilterParameters
+                {
+                    ImageHeight = (uint)camera.ScreenSize.Height,
+                    ImageWidth = (uint)camera.ScreenSize.Width,
+                    OutputTextureIndex = heapAccumulator.AddUAV(outputTextureLease.Resource, outputTextureLease.Key.UAV),
+                    InputDataIndex = heapAccumulator.AddUAV(inputData.Resource, inputData.Key.UAV),
+                    InputTextureIndex = heapAccumulator.AddUAV(input.Resource, input.Key.UAV),
+                }]);
+                entry.List.Dispatch((int)Math.Ceiling(camera.ScreenSize.Width / (float)32), (int)Math.Ceiling(camera.ScreenSize.Height / (float)32), 1);
+
+                entry.List.ResourceBarrier([
+                    new Vortice.Direct3D12.ResourceBarrier(new Vortice.Direct3D12.ResourceTransitionBarrier(outputTextureLease.Resource, Vortice.Direct3D12.ResourceStates.UnorderedAccess, Vortice.Direct3D12.ResourceStates.CopySource)),
+                new Vortice.Direct3D12.ResourceBarrier(new Vortice.Direct3D12.ResourceTransitionBarrier(renderTarget, Vortice.Direct3D12.ResourceStates.RenderTarget, Vortice.Direct3D12.ResourceStates.CopyDest))
+                ]);
+
+                entry.List.CopyResource(renderTarget, outputTextureLease.Resource);
+                entry.List.ResourceBarrierTransition(renderTarget, Vortice.Direct3D12.ResourceStates.CopyDest, Vortice.Direct3D12.ResourceStates.RenderTarget);
+            }
+
+            input.Dispose();
+        }
+
+        private void AddRayGen(ShaderBindingTable shaderTable, Camera camera)
+        {
+            var frustum = Frustum.FromScreen(new ScreenRectangle { Start = new ScreenPosition(0, 0), End = new ScreenPosition(camera.ScreenSize.Width, camera.ScreenSize.Height) }, camera.ScreenSize, camera.InvViewProjection);
+
+            shaderTable.AddRayGeneration(cameraShader.Export, tlas => new Shaders.Data.CameraMatrices
+            {
+                WorldBottomLeft = frustum.Points[0],
+                WorldTopLeft = frustum.Points[1],
+                WorldTopRight = frustum.Points[2],
+                Origin = camera.Position,
+                SceneBVHIndex = heapAccumulator.AddRaytracingStructure(tlas),
+            }.GetBytes());
+        }
+
+        private void AddMissShader(Volume volume, ShaderBindingTable shaderTable, ResourcePool.ResourceLifetime<IlluminanceTextureKey> illuminanceTexture, ResourcePool.ResourceLifetime<GBufferKey> data, PooledCommandList entry)
+        {
+            var mapData = mapResourceCache.Get(volume.Map, entry);
+
+            var parameters = new Shaders.Data.StarfieldParameters
+            {
+                DataIndex = heapAccumulator.AddUAV(data.Resource, data.Key.UAV),
+                IlluminanceTextureIndex = heapAccumulator.AddUAV(illuminanceTexture.Resource, illuminanceTexture.Key.UAV),
+                NoiseScale = volume.Map.StarfieldNoiseScale,
+                NoiseCutoff = volume.Map.StarfieldNoiseCutoff,
+                TemperatureScale = volume.Map.StarfieldTemperatureScale,
+                StarCategories = (uint)volume.Map.StarCategories.Length,
+                Seed = mapData.Seed,
+                AmbientLight = volume.Map.AmbientLightLevel,
+                CategoryIndex = heapAccumulator.AddStructuredBuffer(mapData.Categories)
+            };
+
+            shaderTable.AddMiss(radianceMiss.Export, tlas => parameters.GetBytes());
+        }
+
+        private Vortice.Direct3D12.ID3D12Resource CreateTLAS(Vortice.Direct3D12.RaytracingInstanceDescription[] descriptions, PooledCommandList list)
+        {
+            var instances = list.DisposeAfterExecution(list.CreateUploadBuffer(descriptions)).Name("TLAS prep buffer");
 
             var asDesc = new Vortice.Direct3D12.BuildRaytracingAccelerationStructureInputs
             {
-                DescriptorsCount = preparation.InstanceDescriptions.Count,
+                DescriptorsCount = descriptions.Length,
                 Flags = Vortice.Direct3D12.RaytracingAccelerationStructureBuildFlags.None,
                 Layout = Vortice.Direct3D12.ElementsLayout.Array,
                 Type = Vortice.Direct3D12.RaytracingAccelerationStructureType.TopLevel,
@@ -151,10 +227,10 @@ namespace Renderer.Direct3D12
 
             var prebuild = device.GetRaytracingAccelerationStructurePrebuildInfo(asDesc);
 
-            var scratch = preparation.List.DisposeAfterExecution(device.CreateStaticBuffer(prebuild.ScratchDataSizeInBytes.Align(256), Vortice.Direct3D12.ResourceStates.Common, Vortice.Direct3D12.ResourceFlags.AllowUnorderedAccess).Name("TLAS scratch"));
-            var result = preparation.List.DisposeAfterExecution(device.CreateStaticBuffer(prebuild.ResultDataMaxSizeInBytes.Align(256), Vortice.Direct3D12.ResourceStates.RaytracingAccelerationStructure, Vortice.Direct3D12.ResourceFlags.AllowUnorderedAccess).Name("TLAS result"));
+            var scratch = list.DisposeAfterExecution(device.CreateStaticBuffer(prebuild.ScratchDataSizeInBytes.Align(256), Vortice.Direct3D12.ResourceStates.Common, Vortice.Direct3D12.ResourceFlags.AllowUnorderedAccess).Name("TLAS scratch"));
+            var result = list.DisposeAfterExecution(device.CreateStaticBuffer(prebuild.ResultDataMaxSizeInBytes.Align(256), Vortice.Direct3D12.ResourceStates.RaytracingAccelerationStructure, Vortice.Direct3D12.ResourceFlags.AllowUnorderedAccess).Name("TLAS result"));
 
-            preparation.List.List.BuildRaytracingAccelerationStructure(new Vortice.Direct3D12.BuildRaytracingAccelerationStructureDescription
+            list.List.BuildRaytracingAccelerationStructure(new Vortice.Direct3D12.BuildRaytracingAccelerationStructureDescription
             {
                 DestinationAccelerationStructureData = result.GPUVirtualAddress,
                 ScratchAccelerationStructureData = scratch.GPUVirtualAddress,
@@ -162,7 +238,7 @@ namespace Renderer.Direct3D12
                 SourceAccelerationStructureData = 0,
             });
 
-            preparation.List.List.ResourceBarrierUnorderedAccessView(result);
+            list.List.ResourceBarrierUnorderedAccessView(result);
 
             return result;
         }

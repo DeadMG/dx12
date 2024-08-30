@@ -17,7 +17,9 @@ struct Vertex
 struct RaytracingOutputData
 {
     bool Filter;
-    float3 Position;
+    float Depth;
+    float3 Emission;
+    float3 Albedo;
     float3 Normal;
 };
 
@@ -39,19 +41,6 @@ struct LightSource
     float Size;
     bool DistanceIndependent;
 };
-
-struct FrameData
-{
-    float4x4 ViewProjectionMatrix;
-    float4x4 InverseViewProjectionMatrix;
-    uint DataIndex;
-    uint OutputIndex;
-};
-
-void fakeUse(inout RadiancePayload payload, FrameData data)
-{
-    payload.IncomingDepthOutgoingLight += data.DataIndex;
-}
 
 void fakeUse(inout RadiancePayload payload, LightSource l)
 {

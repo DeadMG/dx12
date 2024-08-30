@@ -11,6 +11,7 @@
 
             foreach (var inputFile in files)
             {
+                if (inputFile.Directory.FullName.Contains("PIX")) continue;
                 emitter.Add(model.TryLoad(Path.GetRelativePath(Directory.GetCurrentDirectory(), inputFile.FullName)));
             }
 

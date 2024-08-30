@@ -13,10 +13,13 @@ void SphereRadianceClosestHit(inout RadiancePayload payload, SphereAttributes at
         RaytracingOutputData data;
         data.Filter = false;
         data.Normal = float3(0, 0, 0);
-        data.Position = float3(0, 0, 0);
+        data.Depth = 0;
+        data.Albedo = Sphere.Colour;
+        data.Emission = float3(0, 0, 0);        
         dataBuffer[raytracingIndex()] = data;
         
-        Return(payload, Sphere.Colour);
+        RWTexture2D<float4> illuminanceTexture = ResourceDescriptorHeap[Sphere.IlluminanceTextureIndex];
+        illuminanceTexture[DispatchRaysIndex().xy] = float4(1, 1, 1, 1);
     }
     else
     {

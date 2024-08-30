@@ -16,6 +16,7 @@ struct ObjectRadianceParameters
     uint LightsIndex;
     uint TLASIndex;
     uint DataIndex;
+    uint IlluminanceTextureIndex;
 };
 
 ConstantBuffer<ObjectRadianceParameters> Settings : register(b0);
@@ -121,24 +122,32 @@ void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes 
     float3 startPosition = WorldRayOrigin() + (RayTCurrent() * WorldRayDirection());
     float3 normal = alignWith(-WorldRayDirection(), normalMul(t.Normal, Settings.WorldMatrix));
     
+    uint2 index = DispatchRaysIndex().xy;
+    uint seed = Settings.Seed * pow2(index.x + 1u) * pow2(index.y + 1u);
+    
+    float3 emission = t.EmissionStrength * t.EmissionColour;
+    
     if (depth == 1)
     {        
         RWStructuredBuffer<RaytracingOutputData> dataBuffer = ResourceDescriptorHeap[Settings.DataIndex];
         RaytracingOutputData data;
         data.Filter = true;
-        data.Position = startPosition;
+        data.Depth = RayTCurrent();
+        data.Albedo = t.Colour;
         data.Normal = normal;
+        data.Emission = emission;
         dataBuffer[raytracingIndex()] = data;
     }
     
-    
-    uint2 index = DispatchRaysIndex().xy;
-    
-    Return(payload, min(t.EmissionStrength * t.EmissionColour, float3(1, 1, 1)));
-    
-    uint seed = Settings.Seed * pow2(index.x + 1u) * pow2(index.y + 1u);
-    
     float3 incomingLight = monteCarlo(ResourceDescriptorHeap[Settings.TLASIndex], ResourceDescriptorHeap[Settings.LightsIndex], depth, normal, startPosition, seed);
     
-    Return(payload, min(GetColour(payload).rgb + (incomingLight * t.Colour), float3(1, 1, 1)));
+    if (depth == 1)
+    {
+        RWTexture2D<float4> illuminanceTexture = ResourceDescriptorHeap[Settings.IlluminanceTextureIndex];
+        illuminanceTexture[index] = float4(incomingLight, 1);
+    }    
+    else
+    {
+        Return(payload, min(emission + incomingLight * t.Colour, float3(1, 1, 1)));
+    }
 }

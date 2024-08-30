@@ -11,7 +11,6 @@ struct CameraMatrices
     
     float3 Origin;
 
-    uint OutputIndex;
     uint SceneBVHIndex;
 };
 
@@ -21,9 +20,6 @@ ConstantBuffer<CameraMatrices> Camera : register(b0);
 [shader("raygeneration")]
 void RayGen()
 {
-// Raytracing output texture, accessed as a UAV
-    RWTexture2D<float4> output = ResourceDescriptorHeap[Camera.OutputIndex];
-
 // Raytracing acceleration structure, accessed as a SRV
     RaytracingAccelerationStructure SceneBVH = ResourceDescriptorHeap[Camera.SceneBVHIndex];
     
@@ -58,7 +54,5 @@ void RayGen()
         0,
         0,
         ray,
-        payload);    
-   
-    output[launchIndex] = GetColour(payload);
+        payload);
 }

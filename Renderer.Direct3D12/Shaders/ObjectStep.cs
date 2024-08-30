@@ -1,13 +1,13 @@
 ﻿using Data.Mesh;
 using Simulation;
 using System.Numerics;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Util;
+using static Renderer.Direct3D12.Shaders.ScreenSizeRaytraceResources;
 
 namespace Renderer.Direct3D12.Shaders
 {
-    internal class ObjectStep : IRaytracingPipelineStep
+    internal class ObjectStep : IDisposable
     {
         private readonly DisposeTracker disposeTracker = new DisposeTracker();
         private readonly PrimitiveBlasCache primitiveBlasCache;
@@ -54,30 +54,31 @@ namespace Renderer.Direct3D12.Shaders
             disposeTracker.Dispose();
         }
 
-        public void PrepareRaytracing(RaytracePreparation preparation)
+        public IEnumerable<Vortice.Direct3D12.RaytracingInstanceDescription> PrepareRaytracing(Volume volume, DescriptorHeapAccumulator heapAccumulator, PooledCommandList list, ShaderBindingTable table, ResourcePool.ResourceLifetime<IlluminanceTextureKey> illuminanceTexture, ResourcePool.ResourceLifetime<GBufferKey> data)
         {
-            var dataIndex = preparation.HeapAccumulator.AddStructuredBuffer(preparation.Data);
-            var lights = preparation.Volume.Units.Select(u => LightSource(u, preparation.HeapAccumulator, preparation.List)).Concat(preparation.Volume.Map.Objects.Select(o => LightSource(o, preparation.HeapAccumulator, preparation.List))).Where(s => s.Power > 0).ToArray();
-            var lightBuffer = preparation.List.DisposeAfterExecution(preparation.List.CreateUploadBuffer(lights));
-            var lightIndex = preparation.HeapAccumulator.AddStructuredBuffer(lightBuffer);
+            var dataIndex = heapAccumulator.AddUAV(data.Resource, data.Key.UAV);
+            var outputTextureIndex = heapAccumulator.AddUAV(illuminanceTexture.Resource, illuminanceTexture.Key.UAV);
+            var lights = volume.Units.Select(u => LightSource(u, heapAccumulator, list)).Concat(volume.Map.Objects.Select(o => LightSource(o, heapAccumulator, list))).Where(s => s.Power > 0).ToArray();
+            var lightBuffer = list.DisposeAfterExecution(list.CreateUploadBuffer(lights).Name("Light buffer"));
+            var lightIndex = heapAccumulator.AddStructuredBuffer(lightBuffer);
 
-            var unitInstances = preparation.Volume.Units
+            var unitInstances = volume.Units
                 .Select(u => new InstanceDescription
                 {
-                    BLAS = GetBLAS(u.Blueprint.Name, u.Blueprint.Mesh, preparation.List),
-                    HitGroup = GetHitGroup(preparation.ShaderTable, lightIndex, dataIndex, preparation.Volume.Map.AmbientLightLevel, preparation.HeapAccumulator, u.WorldMatrix, u.Blueprint.Mesh, preparation.List),
+                    BLAS = GetBLAS(u.Blueprint.Name, u.Blueprint.Mesh, list),
+                    HitGroup = GetHitGroup(table, lightIndex, dataIndex, outputTextureIndex, volume.Map.AmbientLightLevel, heapAccumulator, u.WorldMatrix, u.Blueprint.Mesh, list),
                     Transform = u.WorldMatrix
                 });
 
-            var predefined = preparation.Volume.Map.Objects
+            var predefined = volume.Map.Objects
                 .Select(o => new InstanceDescription
                 {
-                    BLAS = GetBLAS(o.Name, o.Geometry, preparation.List),
-                    HitGroup = GetHitGroup(preparation.ShaderTable, lightIndex, dataIndex, preparation.Volume.Map.AmbientLightLevel, preparation.HeapAccumulator, o.WorldMatrix, o.Geometry, preparation.List),
+                    BLAS = GetBLAS(o.Name, o.Geometry, list),
+                    HitGroup = GetHitGroup(table, lightIndex, dataIndex, outputTextureIndex, volume.Map.AmbientLightLevel, heapAccumulator, o.WorldMatrix, o.Geometry, list),
                     Transform = o.WorldMatrix
                 });
 
-            var instances = unitInstances
+            return unitInstances
                 .Concat(predefined)
                 .Select(i => new Vortice.Direct3D12.RaytracingInstanceDescription
                 {
@@ -88,31 +89,29 @@ namespace Renderer.Direct3D12.Shaders
                     InstanceMask = 0xFF,
                     InstanceContributionToHitGroupIndex = new Vortice.UInt24((uint)i.HitGroup)
                 });
-
-            preparation.InstanceDescriptions.AddRange(instances);
         }
 
-        private int GetHitGroup(ShaderBindingTable shaderTable, uint lightIndex, uint dataIndex, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Matrix4x4 worldMatrix, IGeometry geometry, PooledCommandList list)
+        private int GetHitGroup(ShaderBindingTable shaderTable, uint lightIndex, uint dataIndex, uint illuminanceIndex, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Matrix4x4 worldMatrix, IGeometry geometry, PooledCommandList list)
         {
-            return PrepareHitGroup(shaderTable, lightIndex, dataIndex, ambientLight, heapAccumulator, worldMatrix, geometry, list);
+            return PrepareHitGroup(shaderTable, lightIndex, dataIndex, illuminanceIndex, ambientLight, heapAccumulator, worldMatrix, geometry, list);
         }
 
-        private int PrepareHitGroup(ShaderBindingTable shaderTable, uint lightIndex, uint dataIndex, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Matrix4x4 worldMatrix, IGeometry geometry, PooledCommandList list)
+        private int PrepareHitGroup(ShaderBindingTable shaderTable, uint lightIndex, uint dataIndex, uint illuminanceIndex, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Matrix4x4 worldMatrix, IGeometry geometry, PooledCommandList list)
         {
             if (geometry is SphereGeometry sphere)
             {
-                return PrepareSphereHitGroup(shaderTable, dataIndex, worldMatrix, sphere);
+                return PrepareSphereHitGroup(shaderTable, dataIndex, illuminanceIndex, worldMatrix, sphere);
             }
 
             if (geometry is Mesh mesh)
             {
-                return PrepareMeshHitGroup(shaderTable, lightIndex, dataIndex,  worldMatrix, ambientLight, heapAccumulator, mesh, list);
+                return PrepareMeshHitGroup(shaderTable, lightIndex, dataIndex, illuminanceIndex, worldMatrix, ambientLight, heapAccumulator, mesh, list);
             }
 
             throw new InvalidOperationException();
         }
 
-        private int PrepareSphereHitGroup(ShaderBindingTable shaderTable, uint dataIndex, Matrix4x4 worldMatrix, SphereGeometry sphere)
+        private int PrepareSphereHitGroup(ShaderBindingTable shaderTable, uint dataIndex, uint illuminanceIndex, Matrix4x4 worldMatrix, SphereGeometry sphere)
         {
             var pos = Vector3.Transform(new Vector3(0, 0, 0), worldMatrix);
             var size = Vector3.TransformNormal(new Vector3(1, 0, 0), worldMatrix).Length();
@@ -124,12 +123,13 @@ namespace Renderer.Direct3D12.Shaders
                 Colour = sphere.Material.Colour,
                 EmissionColour = sphere.Material.EmissionColour,
                 DataIndex = dataIndex,
+                IlluminanceTextureIndex = illuminanceIndex,
             }.GetBytes();
 
             return shaderTable.AddHit("SphereRadiance", parameters);
         }
 
-        private int PrepareMeshHitGroup(ShaderBindingTable shaderTable, uint lightIndex, uint dataIndex, Matrix4x4 worldMatrix, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Mesh mesh, PooledCommandList list)
+        private int PrepareMeshHitGroup(ShaderBindingTable shaderTable, uint lightIndex, uint dataIndex, uint illuminanceIndex, Matrix4x4 worldMatrix, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Mesh mesh, PooledCommandList list)
         {
             var meshData = meshResourceCache.Load(mesh, list);
 
@@ -143,6 +143,7 @@ namespace Renderer.Direct3D12.Shaders
                 TLASIndex = heapAccumulator.AddRaytracingStructure(tlas),
                 TrianglesIndex = heapAccumulator.AddStructuredBuffer(meshData.Triangles),
                 DataIndex = dataIndex,
+                IlluminanceTextureIndex = illuminanceIndex,
             }.GetBytes();
 
             return shaderTable.AddHit("ObjectRadiance", parameters);
@@ -214,10 +215,6 @@ namespace Renderer.Direct3D12.Shaders
             public required Vortice.Direct3D12.ID3D12Resource BLAS { get; init; }
             public required Matrix4x4 Transform { get; init; }
             public required int HitGroup { get; init; }
-        }
-
-        public void CommitRaytracing(RaytraceCommit commit)
-        {
         }
     }
 }

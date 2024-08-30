@@ -30,10 +30,10 @@ namespace Renderer.Direct3D12
             var size = Math.Max(aabb.Start.X - aabb.End.X, Math.Max(aabb.Start.Y - aabb.End.Y, aabb.Start.Z - aabb.End.Z));
 
             var vertexBuffer = disposeTracker.Track(device.CreateStaticBuffer(vertices.SizeOf()).Name($"{name} vertex buffer"));
-            var triangleBuffer = disposeTracker.Track(device.CreateStaticBuffer(triangles.SizeOf()).Name($"{name} vertex index buffer"));
+            var triangleBuffer = disposeTracker.Track(device.CreateStaticBuffer(triangles.SizeOf()).Name($"{name} triangle buffer"));
 
             var indices = mesh.Triangles.SelectMany(m => m.Vertices).ToArray();
-            var indexBuffer = list.DisposeAfterExecution(list.CreateUploadBuffer(indices));
+            var indexBuffer = list.DisposeAfterExecution(list.CreateUploadBuffer(indices).Name($"{name} index buffer"));
 
             var asDesc = new Vortice.Direct3D12.BuildRaytracingAccelerationStructureInputs
             {

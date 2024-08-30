@@ -34,8 +34,8 @@ namespace Renderer.Direct3D12
         public uint AddStructuredBuffer(StructuredBuffer buffer) =>
             cbvUavSrvHeap.AddStructuredBuffer(buffer).Index;
 
-        public uint AddUAV(Vortice.Direct3D12.ID3D12Resource buffer) =>
-            cbvUavSrvHeap.AddUAV(buffer).Index;
+        public uint AddUAV(Vortice.Direct3D12.ID3D12Resource buffer, Vortice.Direct3D12.UnorderedAccessViewDescription desc) =>
+            cbvUavSrvHeap.AddUAV(buffer, desc).Index;
 
         public uint AddRaytracingStructure(Vortice.Direct3D12.ID3D12Resource resource) =>
             cbvUavSrvHeap.AddRaytracingStructure(resource).Index;
@@ -138,19 +138,13 @@ namespace Renderer.Direct3D12
                 return slot;
             }
 
-            public DescriptorHeapSlot AddUAV(Vortice.Direct3D12.ID3D12Resource buffer)
+            public DescriptorHeapSlot AddUAV(Vortice.Direct3D12.ID3D12Resource buffer, Vortice.Direct3D12.UnorderedAccessViewDescription desc)
             {
                 if (uavs.ContainsKey(buffer)) return uavs[buffer];
 
                 var slot = GetSlot();
-
-                device.CreateUnorderedAccessView(buffer,
-                    null,
-                    new Vortice.Direct3D12.UnorderedAccessViewDescription
-                    {
-                        ViewDimension = Vortice.Direct3D12.UnorderedAccessViewDimension.Texture2D
-                    },
-                    slot.Handle);
+                
+                device.CreateUnorderedAccessView(buffer, null, desc, slot.Handle);
 
                 uavs[buffer] = slot;
 
