@@ -116,11 +116,10 @@ void RadianceMiss(inout RadiancePayload payload)
         
         RWStructuredBuffer<RaytracingOutputData> dataBuffer = ResourceDescriptorHeap[Parameters.DataIndex];
         RaytracingOutputData data;
-        data.Filter = false;
-        data.Normal = float3(0, 0, 0);
+        data.Normal = zeroDirection();
         data.Depth = 0;
-        data.Albedo = brightness * colour(distribution);
-        data.Emission = float3(0, 0, 0);
+        data.Albedo = asColour(float4(brightness * colour(distribution), 1));
+        data.Emission = asColour(float4(0, 0, 0, 0));
         dataBuffer[raytracingIndex()] = data;
         
         RWTexture2D<float4> illuminanceTexture = ResourceDescriptorHeap[Parameters.IlluminanceTextureIndex];

@@ -97,6 +97,7 @@ float3 monteCarlo(RaytracingAccelerationStructure SceneBVH, StructuredBuffer<Lig
     
     float3 incomingLight = float3(0, 0, 0);
         
+    [unroll]
     for (int16_t i = 0; i < numSamples; ++i)
     {
         PreweightedMonteCarloSample psample = preweightedSamples[i];
@@ -124,30 +125,24 @@ void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes 
     
     uint2 index = DispatchRaysIndex().xy;
     uint seed = Settings.Seed * pow2(index.x + 1u) * pow2(index.y + 1u);
-    
-    float3 emission = t.EmissionStrength * t.EmissionColour;
-    
+       
     if (depth == 1)
     {        
         RWStructuredBuffer<RaytracingOutputData> dataBuffer = ResourceDescriptorHeap[Settings.DataIndex];
         RaytracingOutputData data;
-        data.Filter = true;
         data.Depth = RayTCurrent();
-        data.Albedo = t.Colour;
-        data.Normal = normal;
-        data.Emission = emission;
+        data.Albedo = asColour(float4(t.Colour, 1));
+        data.Normal = cartesianToDirection(normal);
+        data.Emission = asColour(float4(t.EmissionStrength * t.EmissionColour, 1));
         dataBuffer[raytracingIndex()] = data;
-    }
-    
-    float3 incomingLight = monteCarlo(ResourceDescriptorHeap[Settings.TLASIndex], ResourceDescriptorHeap[Settings.LightsIndex], depth, normal, startPosition, seed);
-    
-    if (depth == 1)
-    {
+        
+        float3 incomingLight = monteCarlo(ResourceDescriptorHeap[Settings.TLASIndex], ResourceDescriptorHeap[Settings.LightsIndex], depth, normal, startPosition, seed);
         RWTexture2D<float4> illuminanceTexture = ResourceDescriptorHeap[Settings.IlluminanceTextureIndex];
         illuminanceTexture[index] = float4(incomingLight, 1);
-    }    
+    }
     else
     {
-        Return(payload, min(emission + incomingLight * t.Colour, float3(1, 1, 1)));
+        float3 incomingLight = monteCarlo(ResourceDescriptorHeap[Settings.TLASIndex], ResourceDescriptorHeap[Settings.LightsIndex], depth, normal, startPosition, seed);
+        Return(payload, min(t.EmissionStrength * t.EmissionColour + incomingLight * t.Colour, float3(1, 1, 1)));
     }
 }

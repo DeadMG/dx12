@@ -74,6 +74,7 @@
     <UpToDateCheckInput Remove="shaders\pix\OutputViewer.hlsl" />
     <UpToDateCheckInput Remove="shaders\raytrace\Atrous.hlsl" />
     <UpToDateCheckInput Remove="Shaders\Raytrace\Direction.hlsl" />
+    <UpToDateCheckInput Remove="shaders\raytrace\raygen\Colour.hlsl" />
   </ItemGroup>
 
   <ItemGroup>

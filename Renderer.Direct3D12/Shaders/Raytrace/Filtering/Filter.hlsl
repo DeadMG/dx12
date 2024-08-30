@@ -27,5 +27,5 @@ void compute(int2 id: SV_DispatchThreadID)
     
     RaytracingOutputData rtData = inputData[index(id, Parameters.ImageWidth)];
     
-    output[id] = input[id] * float4(rtData.Albedo, 1) + float4(rtData.Emission, 1);
+    output[id] = input[id] * asFloat(rtData.Albedo) + asFloat(rtData.Emission);
 }

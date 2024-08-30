@@ -1,27 +1,40 @@
 #pragma once
 
 #include "Spherical.hlsl"
+#include "Power.hlsl"
 
 struct Direction
 {
-    uint16_t elevation;
-    uint16_t azimuth;
+    int X: 15;
+    int Y: 15;
+    uint ZPositive: 1;
 };
+
+static const float conversion = 16383.0f;
 
 float3 directionToCartesian(Direction direction)
 {
-    Spherical sphere;
-    sphere.r = 1;
-    sphere.elevation = (direction.elevation / 65536.0f) * PI;
-    sphere.azimuth = (direction.azimuth / 65536.0f) * 2 * PI;
-    return sphericalToCartesian(sphere);
+    float3 result = float3(0, 0, 0);
+    result.x = direction.X / conversion;
+    result.y = direction.Y / conversion;
+    result.z = (direction.ZPositive == 1 ? 1 : -1) * sqrt(1 - pow2(result.x) - pow2(result.y));
+    return result;
 }
 
 Direction cartesianToDirection(float3 cartesian)
 {
-    Spherical sphere = cartesianToSpherical(cartesian);
     Direction d;
-    d.elevation = (sphere.elevation / PI) * 65536u;
-    d.azimuth = (sphere.azimuth / (2 * PI)) * 65536u;
+    d.ZPositive = cartesian.z >= 0 ? 1 : 0;
+    d.X = cartesian.x * conversion;
+    d.Y = cartesian.y * conversion;
+    return d;
+}
+
+Direction zeroDirection()
+{
+    Direction d;
+    d.X = 0;
+    d.Y = 0;
+    d.ZPositive = 0;
     return d;
 }

@@ -181,11 +181,15 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
 
         private IHlslType Map(Vortice.Direct3D12.Shader.ID3D12ShaderReflectionType type, int? size)
         {
+            var name = type.Description.Name;
+
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.UInt) return PrimitiveHlslType.Uint;
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Float) return PrimitiveHlslType.Float;
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Int) return PrimitiveHlslType.Int;
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Bool) return PrimitiveHlslType.Bool;
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Float16) return PrimitiveHlslType.Half;
+            if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Void) return PrimitiveHlslType.Uint;
+            if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.Scalar && type.Description.Type == Vortice.Direct3D.ShaderVariableType.UInt16) return PrimitiveHlslType.Ushort;
 
             if (type.Description.Class == Vortice.Direct3D.ShaderVariableClass.MatrixColumns && type.Description.Type == Vortice.Direct3D.ShaderVariableType.Float)
             {

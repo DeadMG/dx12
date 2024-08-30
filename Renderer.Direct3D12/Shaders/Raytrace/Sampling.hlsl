@@ -8,9 +8,9 @@
 
 struct MonteCarloSample
 {
-    float3 direction;
-    bool isNextEventEstimation;
-    bool isValid;
+    Direction direction;
+    bool isNextEventEstimation: 1;
+    bool isValid: 1;
 };
 
 MonteCarloSample newSample()
@@ -28,7 +28,7 @@ MonteCarloSample cosineHemisphere(inout uint seed, float3 normal)
     weighted.elevation = acos(sqrt(uniformRand(seed)));
     
     MonteCarloSample sample = newSample();
-    sample.direction = rotateNormal(normal, weighted);
+    sample.direction = cartesianToDirection(rotateNormal(normal, weighted));
     sample.isNextEventEstimation = false;
     return sample;
 }
@@ -42,7 +42,7 @@ MonteCarloSample cone(inout uint seed, float3 direction, float angle)
     weighted.azimuth = 2 * PI * uniformRand(seed);
     
     MonteCarloSample sample = newSample();
-    sample.direction = rotateNormal(direction, weighted);
+    sample.direction = cartesianToDirection(rotateNormal(direction, weighted));
     sample.isNextEventEstimation = false;
     return sample;
 }
@@ -58,7 +58,7 @@ bool isValidSample(MonteCarloSample sample, float3 normal)
 {
     if (!sample.isValid)
         return false;
-    if (dot(sample.direction, normal) < 0)
+    if (dot(directionToCartesian(sample.direction), normal) < 0)
         return false;
     return true;
 }
@@ -183,17 +183,19 @@ void preweightSamples(inout PreweightedMonteCarloSample result[numSamples], inou
     {
         MonteCarloSample sample = samples[i];
         
+        float3 direction = directionToCartesian(sample.direction);
+        
         // If we have no samples, we have no valid light. This is probably uniform, so this hot-path will
         // probably actually be hot.
-        float neeWeight = neeSamples == 0 ? 0 : neePdf(lights, origin, sample.direction);
-        float brdfWeight = brdfPdf(normal, sample.direction);
+        float neeWeight = neeSamples == 0 ? 0 : neePdf(lights, origin, direction);
+        float brdfWeight = brdfPdf(normal, direction);
         
         int thisDistributionSamples = sample.isNextEventEstimation ? neeSamples : brdfSamples;
         float thisDistributionPdf = sample.isNextEventEstimation ? neeWeight : brdfWeight;
         
         PreweightedMonteCarloSample preweighted;
-        preweighted.direction = cartesianToDirection(sample.direction);
-        preweighted.weight = thisDistributionSamples * thisDistributionPdf * dot(normal, sample.direction) / (PI * (pow2(neeSamples * neeWeight) + pow2(brdfSamples * brdfWeight)));
+        preweighted.direction = sample.direction;
+        preweighted.weight = thisDistributionSamples * thisDistributionPdf * dot(normal, direction) / (PI * (pow2(neeSamples * neeWeight) + pow2(brdfSamples * brdfWeight)));
         result[i] = preweighted;
     }
 }

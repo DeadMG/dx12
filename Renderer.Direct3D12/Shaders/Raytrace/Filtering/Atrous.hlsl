@@ -55,12 +55,12 @@ float4 atrous(int2 dimensions, int2 location, int stepwidth, float cPhi, float n
             
             RaytracingOutputData kernelData = data[index(kernelLocation, dimensions.x)];
             
-            if (!kernelData.Filter)
+            if (!filterData(kernelData))
                 continue;
             
             float colourWeight = min(exp(-(selfDot(input[location] - input[kernelLocation])) / cPhi), 1.0);
         
-            float normalDistance = max(selfDot(pixelData.Normal - kernelData.Normal) / (stepwidth * stepwidth), 0.0);
+            float normalDistance = max(selfDot(directionToCartesian(pixelData.Normal) - directionToCartesian(kernelData.Normal)) / (stepwidth * stepwidth), 0.0);
             float normalWeight = min(exp(-(normalDistance) / nPhi), 1.0);        
        
             float weight = colourWeight * normalWeight;
@@ -87,7 +87,7 @@ void compute(int2 id : SV_DispatchThreadID)
     
     int dataIndex = index(id, Parameters.ImageWidth);
     
-    if (!inputData[dataIndex].Filter)
+    if (!filterData(inputData[dataIndex]))
     {
         output[id] = input[id];
     }

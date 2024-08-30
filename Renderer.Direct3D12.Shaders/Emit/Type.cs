@@ -58,7 +58,14 @@ namespace Renderer.Direct3D12.Shaders.Data {{
         {
             return $@"
         [FieldOffset({member.Offset})]
-        public required {CsharpName(member.Type, member.Name)} {member.Name};";
+        public required {CsharpName(member.Type, member.Name)} {MemberName(member)};";
+        }
+
+        private string MemberName(StructMember member)
+        {
+            if (!string.IsNullOrWhiteSpace(member.Name)) return member.Name;
+            if (member.Type == PrimitiveHlslType.Int) return "Bitfield";
+            throw new InvalidOperationException("Could not determine member name");
         }
 
         private string CsharpName(IHlslType type, string? memberName)
@@ -69,6 +76,7 @@ namespace Renderer.Direct3D12.Shaders.Data {{
             if (type == PrimitiveHlslType.Int) return "int";
             if (type == PrimitiveHlslType.Bool) return "bool";
             if (type == PrimitiveHlslType.Half) return "Half";
+            if (type == PrimitiveHlslType.Ushort) return "ushort";
             if (type is MatrixHlslType matrix)
             {
                 return $"Matrix{matrix.Rows}x{matrix.Columns}";
