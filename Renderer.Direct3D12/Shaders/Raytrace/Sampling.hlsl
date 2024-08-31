@@ -10,6 +10,7 @@ struct MonteCarloSample
 {
     Direction direction;
     bool isNextEventEstimation: 1;
+    bool isDistanceIndependent: 1;
     bool isValid: 1;
 };
 
@@ -30,6 +31,7 @@ MonteCarloSample cosineHemisphere(inout uint seed, float3 normal)
     MonteCarloSample sample = newSample();
     sample.direction = cartesianToDirection(rotateNormal(normal, weighted));
     sample.isNextEventEstimation = false;
+    sample.isDistanceIndependent = false;
     return sample;
 }
 
@@ -44,6 +46,7 @@ MonteCarloSample cone(inout uint seed, float3 direction, float angle)
     MonteCarloSample sample = newSample();
     sample.direction = cartesianToDirection(rotateNormal(direction, weighted));
     sample.isNextEventEstimation = false;
+    sample.isDistanceIndependent = false;
     return sample;
 }
 
@@ -51,6 +54,9 @@ MonteCarloSample zeroSample()
 {
     MonteCarloSample sample;
     sample.isValid = false;
+    sample.isDistanceIndependent = false;
+    sample.direction = zeroDirection();
+    sample.isNextEventEstimation = false;
     return sample;
 }
 
@@ -63,7 +69,7 @@ bool isValidSample(MonteCarloSample sample, float3 normal)
     return true;
 }
 
-static const int numSamples = 4;
+static const int numSamples = 2;
 
 struct PreweightedMonteCarloSample
 {
@@ -112,6 +118,7 @@ MonteCarloSample sampleLight(LightSource light, inout uint seed, float3 origin, 
     
     MonteCarloSample sample = sampleSphereLight(light, seed, origin, normal);
     sample.isNextEventEstimation = true;
+    sample.isDistanceIndependent = light.DistanceIndependent;
     return sample;
 }
 
@@ -193,10 +200,11 @@ void preweightSamples(inout PreweightedMonteCarloSample result[numSamples], inou
         
         int thisDistributionSamples = sample.isNextEventEstimation ? neeSamples : brdfSamples;
         float thisDistributionPdf = sample.isNextEventEstimation ? neeWeight : brdfWeight;
+        float distanceBias = sample.isNextEventEstimation && sample.isDistanceIndependent ? 4 : 1;
         
         PreweightedMonteCarloSample preweighted;
         preweighted.direction = sample.direction;
-        preweighted.weight = thisDistributionSamples * thisDistributionPdf * dot(normal, direction) / (PI * (pow2(neeSamples * neeWeight) + pow2(brdfSamples * brdfWeight)));
+        preweighted.weight = distanceBias * thisDistributionSamples * thisDistributionPdf * dot(normal, direction) / (PI * (pow2(neeSamples * neeWeight) + pow2(brdfSamples * brdfWeight)));
         result[i] = preweighted;
     }
 }
