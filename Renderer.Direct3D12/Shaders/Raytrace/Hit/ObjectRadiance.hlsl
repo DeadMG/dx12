@@ -4,6 +4,7 @@
 #include "../Light.hlsl"
 #include "../Sampling.hlsl"
 #include "../Power.hlsl"
+#include "../GBuffer.hlsl"
 
 struct ObjectRadianceParameters
 {
@@ -17,6 +18,7 @@ struct ObjectRadianceParameters
     uint TLASIndex;
     uint DataIndex;
     uint IlluminanceTextureIndex;
+    uint AtrousDataTextureIndex;
 };
 
 ConstantBuffer<ObjectRadianceParameters> Settings : register(b0);
@@ -76,7 +78,7 @@ float3 monteCarlo(RaytracingAccelerationStructure SceneBVH, StructuredBuffer<Lig
     if (prepareLights(lights, allLights, seed, startPosition, normal))
     {
         [unroll]
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < numSamples - 1; i++)
         {
             samples[i] = sampleLights(lights, seed, startPosition, normal);
             if (!isValidSample(samples[i], normal))
@@ -85,12 +87,14 @@ float3 monteCarlo(RaytracingAccelerationStructure SceneBVH, StructuredBuffer<Lig
     }
     else
     {
-        samples[0] = cosineHemisphere(seed, normal);
-        samples[1] = cosineHemisphere(seed, normal);
-        samples[2] = cosineHemisphere(seed, normal);
+        [unroll]
+        for (int i = 0; i < numSamples - 1; i++)
+        {
+            samples[i] = cosineHemisphere(seed, normal);
+        }
     }
     
-    samples[3] = cosineHemisphere(seed, normal);
+    samples[numSamples - 1] = cosineHemisphere(seed, normal);
     
     PreweightedMonteCarloSample preweightedSamples[numSamples];
     preweightSamples(preweightedSamples, samples, lights, startPosition, normal);
@@ -130,11 +134,15 @@ void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes 
     {        
         RWStructuredBuffer<RaytracingOutputData> dataBuffer = ResourceDescriptorHeap[Settings.DataIndex];
         RaytracingOutputData data;
-        data.Depth = RayTCurrent();
         data.Albedo = asColour(float4(t.Colour, 1));
-        data.Normal = cartesianToDirection(normal);
         data.Emission = asColour(float4(t.EmissionStrength * t.EmissionColour, 1));
         dataBuffer[raytracingIndex()] = data;
+        
+        RWTexture2D<uint2> AtrousTexture = ResourceDescriptorHeap[Settings.AtrousDataTextureIndex];
+        AtrousData atrous;
+        atrous.Normal = cartesianToDirection(normal);
+        atrous.Depth = RayTCurrent();
+        AtrousTexture[index] = packAtrous(atrous);
         
         float3 incomingLight = monteCarlo(ResourceDescriptorHeap[Settings.TLASIndex], ResourceDescriptorHeap[Settings.LightsIndex], depth, normal, startPosition, seed);
         RWTexture2D<float4> illuminanceTexture = ResourceDescriptorHeap[Settings.IlluminanceTextureIndex];
@@ -143,6 +151,6 @@ void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes 
     else
     {
         float3 incomingLight = monteCarlo(ResourceDescriptorHeap[Settings.TLASIndex], ResourceDescriptorHeap[Settings.LightsIndex], depth, normal, startPosition, seed);
-        Return(payload, min(t.EmissionStrength * t.EmissionColour + incomingLight * t.Colour, float3(1, 1, 1)));
+        Return(payload, float4(min(t.EmissionStrength * t.EmissionColour + incomingLight * t.Colour, float3(1, 1, 1)), 1));
     }
 }

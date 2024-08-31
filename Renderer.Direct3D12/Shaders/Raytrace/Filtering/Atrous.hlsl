@@ -1,5 +1,6 @@
 #include "../Structured.hlsl"
 #include "../Power.hlsl"
+#include "../GBuffer.hlsl"
 
 struct AtrousRootParameters
 {
@@ -27,7 +28,7 @@ float selfDot(float4 vec)
     return dot(vec, vec);
 }
 
-float4 atrous(int2 dimensions, int2 location, int stepwidth, float cPhi, float nPhi, RWTexture2D<float4> input, RWStructuredBuffer<RaytracingOutputData> data)
+float4 atrous(int2 dimensions, int2 location, int stepwidth, float cPhi, float nPhi, RWTexture2D<float4> input, RWTexture2D<uint2> data)
 {    
     const float kernel[5][5] =
     {
@@ -40,7 +41,7 @@ float4 atrous(int2 dimensions, int2 location, int stepwidth, float cPhi, float n
         
     float4 sum = float4(0, 0, 0, 0);
     
-    RaytracingOutputData pixelData = data[index(location, dimensions.x)];
+    AtrousData pixelData = unpackAtrous(data[location]);
     
     float cumulativeWeight = 0.0;
     
@@ -53,7 +54,7 @@ float4 atrous(int2 dimensions, int2 location, int stepwidth, float cPhi, float n
             if (any(kernelLocation < int2(0, 0)) || any(kernelLocation >= dimensions))
                 continue;
             
-            RaytracingOutputData kernelData = data[index(kernelLocation, dimensions.x)];
+            AtrousData kernelData = unpackAtrous(data[kernelLocation]);
             
             if (!filterData(kernelData))
                 continue;
@@ -76,7 +77,7 @@ float4 atrous(int2 dimensions, int2 location, int stepwidth, float cPhi, float n
 [numthreads(32, 32, 1)]
 void compute(int2 id : SV_DispatchThreadID)
 {
-    RWStructuredBuffer<RaytracingOutputData> inputData = ResourceDescriptorHeap[Parameters.InputDataIndex];
+    RWTexture2D<uint2> inputData = ResourceDescriptorHeap[Parameters.InputDataIndex];
     RWTexture2D<float4> input = ResourceDescriptorHeap[Parameters.InputTextureIndex];
     RWTexture2D<float4> output = ResourceDescriptorHeap[Parameters.OutputTextureIndex];
     
@@ -84,10 +85,8 @@ void compute(int2 id : SV_DispatchThreadID)
     
     if (any(id >= dimensions))
         return;
-    
-    int dataIndex = index(id, Parameters.ImageWidth);
-    
-    if (!filterData(inputData[dataIndex]))
+        
+    if (!filterData(unpackAtrous(inputData[id])))
     {
         output[id] = input[id];
     }

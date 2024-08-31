@@ -54,10 +54,8 @@ namespace Renderer.Direct3D12.Shaders
             disposeTracker.Dispose();
         }
 
-        public IEnumerable<Vortice.Direct3D12.RaytracingInstanceDescription> PrepareRaytracing(Volume volume, DescriptorHeapAccumulator heapAccumulator, PooledCommandList list, ShaderBindingTable table, ResourcePool.ResourceLifetime<IlluminanceTextureKey> illuminanceTexture, ResourcePool.ResourceLifetime<GBufferKey> data)
+        public IEnumerable<Vortice.Direct3D12.RaytracingInstanceDescription> PrepareRaytracing(Volume volume, DescriptorHeapAccumulator heapAccumulator, PooledCommandList list, ShaderBindingTable table, ResourcePool.ResourceLifetime<IlluminanceTextureKey> illuminanceTexture, ResourcePool.ResourceLifetime<AtrousDataTextureKey> atrous, ResourcePool.ResourceLifetime<GBufferKey> data)
         {
-            var dataIndex = heapAccumulator.AddUAV(data.Resource, data.Key.UAV);
-            var outputTextureIndex = heapAccumulator.AddUAV(illuminanceTexture.Resource, illuminanceTexture.Key.UAV);
             var lights = volume.Units.Select(u => LightSource(u, heapAccumulator, list)).Concat(volume.Map.Objects.Select(o => LightSource(o, heapAccumulator, list))).Where(s => s.Power > 0).ToArray();
             var lightBuffer = list.DisposeAfterExecution(list.CreateUploadBuffer(lights).Name("Light buffer"));
             var lightIndex = heapAccumulator.AddStructuredBuffer(lightBuffer);
@@ -66,7 +64,7 @@ namespace Renderer.Direct3D12.Shaders
                 .Select(u => new InstanceDescription
                 {
                     BLAS = GetBLAS(u.Blueprint.Name, u.Blueprint.Mesh, list),
-                    HitGroup = GetHitGroup(table, lightIndex, dataIndex, outputTextureIndex, volume.Map.AmbientLightLevel, heapAccumulator, u.WorldMatrix, u.Blueprint.Mesh, list),
+                    HitGroup = GetHitGroup(table, lightIndex, data, atrous, illuminanceTexture, volume.Map.AmbientLightLevel, heapAccumulator, u.WorldMatrix, u.Blueprint.Mesh, list),
                     Transform = u.WorldMatrix
                 });
 
@@ -74,7 +72,7 @@ namespace Renderer.Direct3D12.Shaders
                 .Select(o => new InstanceDescription
                 {
                     BLAS = GetBLAS(o.Name, o.Geometry, list),
-                    HitGroup = GetHitGroup(table, lightIndex, dataIndex, outputTextureIndex, volume.Map.AmbientLightLevel, heapAccumulator, o.WorldMatrix, o.Geometry, list),
+                    HitGroup = GetHitGroup(table, lightIndex, data, atrous, illuminanceTexture, volume.Map.AmbientLightLevel, heapAccumulator, o.WorldMatrix, o.Geometry, list),
                     Transform = o.WorldMatrix
                 });
 
@@ -91,27 +89,22 @@ namespace Renderer.Direct3D12.Shaders
                 });
         }
 
-        private int GetHitGroup(ShaderBindingTable shaderTable, uint lightIndex, uint dataIndex, uint illuminanceIndex, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Matrix4x4 worldMatrix, IGeometry geometry, PooledCommandList list)
-        {
-            return PrepareHitGroup(shaderTable, lightIndex, dataIndex, illuminanceIndex, ambientLight, heapAccumulator, worldMatrix, geometry, list);
-        }
-
-        private int PrepareHitGroup(ShaderBindingTable shaderTable, uint lightIndex, uint dataIndex, uint illuminanceIndex, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Matrix4x4 worldMatrix, IGeometry geometry, PooledCommandList list)
+        private int GetHitGroup(ShaderBindingTable shaderTable, uint lightIndex, ResourcePool.ResourceLifetime<GBufferKey> data, ResourcePool.ResourceLifetime<AtrousDataTextureKey> atrous, ResourcePool.ResourceLifetime<IlluminanceTextureKey> illuminance, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Matrix4x4 worldMatrix, IGeometry geometry, PooledCommandList list)
         {
             if (geometry is SphereGeometry sphere)
             {
-                return PrepareSphereHitGroup(shaderTable, dataIndex, illuminanceIndex, worldMatrix, sphere);
+                return PrepareSphereHitGroup(shaderTable, data, atrous, illuminance, heapAccumulator, worldMatrix, sphere);
             }
 
             if (geometry is Mesh mesh)
             {
-                return PrepareMeshHitGroup(shaderTable, lightIndex, dataIndex, illuminanceIndex, worldMatrix, ambientLight, heapAccumulator, mesh, list);
+                return PrepareMeshHitGroup(shaderTable, lightIndex, data, atrous, illuminance, worldMatrix, ambientLight, heapAccumulator, mesh, list);
             }
 
             throw new InvalidOperationException();
         }
 
-        private int PrepareSphereHitGroup(ShaderBindingTable shaderTable, uint dataIndex, uint illuminanceIndex, Matrix4x4 worldMatrix, SphereGeometry sphere)
+        private int PrepareSphereHitGroup(ShaderBindingTable shaderTable, ResourcePool.ResourceLifetime<GBufferKey> data, ResourcePool.ResourceLifetime<AtrousDataTextureKey> atrous, ResourcePool.ResourceLifetime<IlluminanceTextureKey> illuminance, DescriptorHeapAccumulator heapAccumulator, Matrix4x4 worldMatrix, SphereGeometry sphere)
         {
             var pos = Vector3.Transform(new Vector3(0, 0, 0), worldMatrix);
             var size = Vector3.TransformNormal(new Vector3(1, 0, 0), worldMatrix).Length();
@@ -122,14 +115,15 @@ namespace Renderer.Direct3D12.Shaders
                 EmissionStrength = sphere.Material.EmissionStrength,
                 Colour = sphere.Material.Colour,
                 EmissionColour = sphere.Material.EmissionColour,
-                DataIndex = dataIndex,
-                IlluminanceTextureIndex = illuminanceIndex,
+                DataIndex = heapAccumulator.AddUAV(data.Resource, data.Key.UAV),
+                IlluminanceTextureIndex = heapAccumulator.AddUAV(illuminance.Resource, illuminance.Key.UAV),
+                AtrousDataTextureIndex = heapAccumulator.AddUAV(atrous.Resource, atrous.Key.UAV),
             }.GetBytes();
 
             return shaderTable.AddHit("SphereRadiance", parameters);
         }
 
-        private int PrepareMeshHitGroup(ShaderBindingTable shaderTable, uint lightIndex, uint dataIndex, uint illuminanceIndex, Matrix4x4 worldMatrix, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Mesh mesh, PooledCommandList list)
+        private int PrepareMeshHitGroup(ShaderBindingTable shaderTable, uint lightIndex, ResourcePool.ResourceLifetime<GBufferKey> data, ResourcePool.ResourceLifetime<AtrousDataTextureKey> atrous, ResourcePool.ResourceLifetime<IlluminanceTextureKey> illuminance, Matrix4x4 worldMatrix, float ambientLight, DescriptorHeapAccumulator heapAccumulator, Mesh mesh, PooledCommandList list)
         {
             var meshData = meshResourceCache.Load(mesh, list);
 
@@ -142,8 +136,9 @@ namespace Renderer.Direct3D12.Shaders
                 WorldMatrix = Matrix4x4.Transpose(worldMatrix),
                 TLASIndex = heapAccumulator.AddRaytracingStructure(tlas),
                 TrianglesIndex = heapAccumulator.AddStructuredBuffer(meshData.Triangles),
-                DataIndex = dataIndex,
-                IlluminanceTextureIndex = illuminanceIndex,
+                DataIndex = heapAccumulator.AddUAV(data.Resource, data.Key.UAV),
+                IlluminanceTextureIndex = heapAccumulator.AddUAV(illuminance.Resource, illuminance.Key.UAV),
+                AtrousDataTextureIndex = heapAccumulator.AddUAV(atrous.Resource, atrous.Key.UAV),
             }.GetBytes();
 
             return shaderTable.AddHit("ObjectRadiance", parameters);

@@ -1,5 +1,6 @@
 #include "../Structured.hlsl"
 #include "../Power.hlsl"
+#include "../GBuffer.hlsl"
 
 struct FilterParameters
 {

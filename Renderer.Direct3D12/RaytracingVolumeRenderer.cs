@@ -87,12 +87,13 @@ namespace Renderer.Direct3D12
             var shaderTable = entry.DisposeAfterExecution(new ShaderBindingTable(stateObjectProperties));
 
             using (var dataLease = frameData.ResourcePool.LeaseResource(frameData.FrameDataKey, $"Frame {frameCount} data buffer"))
+            using (var atrousLease = frameData.ResourcePool.LeaseResource(frameData.AtrousTextureKey, $"Frame {frameCount} atrous buffer"))
             {
                 var outputTextureLease = frameData.ResourcePool.LeaseResource(frameData.FrameTextureKey, $"Frame {frameCount} raytrace output texture");
 
                 AddRayGen(shaderTable, camera);
-                AddMissShader(volume, shaderTable, outputTextureLease, dataLease, entry);
-                var instanceDescriptions = objectStep.PrepareRaytracing(volume, heapAccumulator, entry, shaderTable, outputTextureLease, dataLease).ToArray();
+                AddMissShader(volume, shaderTable, outputTextureLease, atrousLease, dataLease, entry);
+                var instanceDescriptions = objectStep.PrepareRaytracing(volume, heapAccumulator, entry, shaderTable, outputTextureLease, atrousLease, dataLease).ToArray();
 
                 var tlas = CreateTLAS(instanceDescriptions, entry);
 
@@ -106,7 +107,7 @@ namespace Renderer.Direct3D12
                 dispatchDesc.Height = camera.ScreenSize.Height;
                 entry.List.DispatchRays(dispatchDesc);
 
-                Filter(entry, camera, heapAccumulator, frameData, outputTextureLease, dataLease, rp.RenderTarget);
+                Filter(entry, camera, heapAccumulator, frameData, outputTextureLease, atrousLease, dataLease, rp.RenderTarget);
             }
 
             entry.Execute();
@@ -114,7 +115,7 @@ namespace Renderer.Direct3D12
             frameCount++;
         }
 
-        private void Filter(PooledCommandList entry, Camera camera, DescriptorHeapAccumulator heapAccumulator, ScreenSizeRaytraceResources resources, ResourcePool.ResourceLifetime<IlluminanceTextureKey> input, ResourcePool.ResourceLifetime<GBufferKey> inputData, Vortice.Direct3D12.ID3D12Resource renderTarget)
+        private void Filter(PooledCommandList entry, Camera camera, DescriptorHeapAccumulator heapAccumulator, ScreenSizeRaytraceResources resources, ResourcePool.ResourceLifetime<IlluminanceTextureKey> input, ResourcePool.ResourceLifetime<AtrousDataTextureKey> atrous, ResourcePool.ResourceLifetime<GBufferKey> inputData, Vortice.Direct3D12.ID3D12Resource renderTarget)
         {
             entry.List.ResourceBarrierUnorderedAccessView(input.Resource);
 
@@ -137,7 +138,7 @@ namespace Renderer.Direct3D12
                     CPhi = stepFactor * 1000000.0f,
                     NPhi = 0.01f,
                     OutputTextureIndex = heapAccumulator.AddUAV(output.Resource, output.Key.UAV),
-                    InputDataIndex = heapAccumulator.AddUAV(inputData.Resource, inputData.Key.UAV),
+                    InputDataIndex = heapAccumulator.AddUAV(atrous.Resource, atrous.Key.UAV),
                     InputTextureIndex = heapAccumulator.AddUAV(input.Resource, input.Key.UAV),
                 }]);
                 entry.List.Dispatch((int)Math.Ceiling(camera.ScreenSize.Width / (float)32), (int)Math.Ceiling(camera.ScreenSize.Height / (float)32), 1);
@@ -192,7 +193,7 @@ namespace Renderer.Direct3D12
             }.GetBytes());
         }
 
-        private void AddMissShader(Volume volume, ShaderBindingTable shaderTable, ResourcePool.ResourceLifetime<IlluminanceTextureKey> illuminanceTexture, ResourcePool.ResourceLifetime<GBufferKey> data, PooledCommandList entry)
+        private void AddMissShader(Volume volume, ShaderBindingTable shaderTable, ResourcePool.ResourceLifetime<IlluminanceTextureKey> illuminanceTexture, ResourcePool.ResourceLifetime<AtrousDataTextureKey> atrous, ResourcePool.ResourceLifetime<GBufferKey> data, PooledCommandList entry)
         {
             var mapData = mapResourceCache.Get(volume.Map, entry);
 
@@ -206,7 +207,8 @@ namespace Renderer.Direct3D12
                 StarCategories = (uint)volume.Map.StarCategories.Length,
                 Seed = mapData.Seed,
                 AmbientLight = volume.Map.AmbientLightLevel,
-                CategoryIndex = heapAccumulator.AddStructuredBuffer(mapData.Categories)
+                CategoryIndex = heapAccumulator.AddStructuredBuffer(mapData.Categories),
+                AtrousDataTextureIndex = heapAccumulator.AddUAV(atrous.Resource, atrous.Key.UAV),
             };
 
             shaderTable.AddMiss(radianceMiss.Export, tlas => parameters.GetBytes());

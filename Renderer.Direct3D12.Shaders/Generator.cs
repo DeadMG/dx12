@@ -248,7 +248,7 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
 #if DEBUG
             args.Add("-Zi");
             args.Add("-Qembed_debug");
-//            args.Add("-Od");
+            args.Add("-Od");
 #endif
             //args.Add("-Zpr"); // Row-major matrices
             args.Add($"-T {type}_{model}");

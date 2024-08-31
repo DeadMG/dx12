@@ -7,4 +7,5 @@ struct SphereHitGroupParameters
     float EmissionStrength;
     uint DataIndex;
     uint IlluminanceTextureIndex;
+    uint AtrousDataTextureIndex;
 };

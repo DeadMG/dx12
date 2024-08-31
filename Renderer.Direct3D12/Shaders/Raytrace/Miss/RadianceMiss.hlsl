@@ -1,6 +1,7 @@
 #include "../Ray.hlsl"
 #include "../Constants.hlsl"
 #include "../Structured.hlsl"
+#include "../GBuffer.hlsl"
 
 struct StarfieldParameters
 {
@@ -13,6 +14,7 @@ struct StarfieldParameters
     uint CategoryIndex;
     uint DataIndex;
     uint IlluminanceTextureIndex;
+    uint AtrousDataTextureIndex;
 };
 
 ConstantBuffer<StarfieldParameters> Parameters : register(b0);
@@ -116,17 +118,21 @@ void RadianceMiss(inout RadiancePayload payload)
         
         RWStructuredBuffer<RaytracingOutputData> dataBuffer = ResourceDescriptorHeap[Parameters.DataIndex];
         RaytracingOutputData data;
-        data.Normal = zeroDirection();
-        data.Depth = 0;
         data.Albedo = asColour(float4(brightness * colour(distribution), 1));
         data.Emission = asColour(float4(0, 0, 0, 0));
         dataBuffer[raytracingIndex()] = data;
+        
+        RWTexture2D<uint2> AtrousTexture = ResourceDescriptorHeap[Parameters.AtrousDataTextureIndex];
+        AtrousData atrous;
+        atrous.Normal = zeroDirection();
+        atrous.Depth = 0;
+        AtrousTexture[DispatchRaysIndex().xy] = packAtrous(atrous);
         
         RWTexture2D<float4> illuminanceTexture = ResourceDescriptorHeap[Parameters.IlluminanceTextureIndex];
         illuminanceTexture[DispatchRaysIndex().xy] = float4(1, 1, 1, 1);
     }
     else
     {
-        Return(payload, float3(Parameters.AmbientLight, Parameters.AmbientLight, Parameters.AmbientLight));
+        Return(payload, float4(Parameters.AmbientLight, Parameters.AmbientLight, Parameters.AmbientLight, 1));
     }
 }

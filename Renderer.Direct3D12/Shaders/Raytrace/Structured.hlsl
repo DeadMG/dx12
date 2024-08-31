@@ -2,7 +2,6 @@
 
 #include "Ray.hlsl"
 #include "Colour.hlsl"
-#include "Direction.hlsl"
 
 struct StarCategory
 {
@@ -14,14 +13,6 @@ struct Vertex
 {
     float3 Position;
     float3 Normal;
-};
-
-struct RaytracingOutputData
-{
-    float Depth;
-    Direction Normal;
-    Colour Emission;
-    Colour Albedo;
 };
 
 struct Triangle
@@ -43,9 +34,15 @@ struct LightSource
     bool DistanceIndependent;
 };
 
-bool filterData(RaytracingOutputData data)
+struct RaytracingOutputData
 {
-    return data.Depth > 0;
+    Colour Emission;
+    Colour Albedo;
+};
+
+void fakeUse(inout RadiancePayload payload, RaytracingOutputData l)
+{
+    payload.IncomingDepthOutgoingLight += l.Emission.value;
 }
 
 void fakeUse(inout RadiancePayload payload, LightSource l)
@@ -66,11 +63,6 @@ void fakeUse(inout RadiancePayload payload, Vertex cat)
 void fakeUse(inout RadiancePayload payload, Triangle m)
 {
     payload.IncomingDepthOutgoingLight += m.Normal;
-}
-
-void fakeUse(inout RadiancePayload payload, RaytracingOutputData cat)
-{
-    payload.IncomingDepthOutgoingLight *= cat.Depth;
 }
 
 int index(int2 location, int width)
