@@ -160,9 +160,10 @@ float neePdf(inout LightSource lights[numLights], float3 origin, float3 sampleDi
             continue;
     
         float angle = asin(ratio);
-        float targetAngle = acos(dot(sampleDirection, direction));
+        float cosTheta = dot(sampleDirection, direction);
+        float targetAngle = acos(cosTheta);
         
-        if (targetAngle < angle)
+        if (targetAngle > angle || cosTheta < 0)
             continue;
         
         if (light.DistanceIndependent)
