@@ -64,13 +64,18 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
                     return new CompilationResult
                     {
                         DXIL = result.GetResult().AsBytes(),
-                        Inputs = Enumerable.Range(0, reflection.Description.BoundResources).Select(bi => Map(new ShaderReflectionContext(reflection), reflection.GetResourceBindingDescription(bi))).ToArray(),
+                        Inputs = URange(0, reflection.Description.BoundResources).Select(bi => Map(new ShaderReflectionContext(reflection), reflection.GetResourceBindingDescription(bi))).ToArray(),
                         Export = "compute",
                         Path = filename,
                         Type = EmitType.Compute,
                     };
                 }
             }
+        }
+
+        private IEnumerable<uint> URange(uint start, uint count)
+        {
+            return Enumerable.Range((int)start, (int)count).Select(x => (uint)x);
         }
 
         private CompilationResult LoadDxil(string filename, string text)
@@ -85,14 +90,14 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
                 using (var output = result.GetOutput(Vortice.Dxc.DxcOutKind.Reflection))
                 using (var reflection = utils.CreateReflection<Vortice.Direct3D12.Shader.ID3D12LibraryReflection>(output))
                 {
-                    var functions = Enumerable.Range(0, reflection.Description.FunctionCount).Select(x => reflection.GetFunctionByIndex(x)).Where(s => !s.Description.Name.StartsWith("_GLOBAL")).ToArray();
+                    var functions = URange(0, reflection.Description.FunctionCount).Select(x => reflection.GetFunctionByIndex((int)x)).Where(s => !s.Description.Name.StartsWith("_GLOBAL")).ToArray();
                     if (functions.Length != 1) throw new InvalidOperationException($"Found {reflection.Description.FunctionCount} entry points in {filename}: {string.Join(", ", functions.Select(s => s.Description.Name))}");
 
                     var function = functions[0];
                     return new CompilationResult
                     {
                         DXIL = result.GetResult().AsBytes(),
-                        Inputs = Enumerable.Range(0, reflection.Description.FunctionCount).Select(f => reflection.GetFunctionByIndex(f)).SelectMany(function => Enumerable.Range(0, function.Description.BoundResources).Select(bi => Map(new FunctionReflectionContext(function), function.GetResourceBindingDescription(bi)))).ToArray(),
+                        Inputs = URange(0, reflection.Description.FunctionCount).Select(f => reflection.GetFunctionByIndex((int)f)).SelectMany(function => URange(0, function.Description.BoundResources).Select(bi => Map(new FunctionReflectionContext(function), function.GetResourceBindingDescription(bi)))).ToArray(),
                         Export = UnmangleName(function.Description.Name),
                         Path = filename,
                         Type = EmitType.DXR,
@@ -179,7 +184,7 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
             throw new InvalidOperationException();
         }
 
-        private IHlslType Map(Vortice.Direct3D12.Shader.ID3D12ShaderReflectionType type, int? size)
+        private IHlslType Map(Vortice.Direct3D12.Shader.ID3D12ShaderReflectionType type, uint? size)
         {
             var name = type.Description.Name;
 
@@ -218,7 +223,7 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
                 {
                     Name = type.Description.Name,
                     Size = size.Value,
-                    Members = Enumerable.Range(0, type.Description.MemberCount)
+                    Members = URange(0, type.Description.MemberCount)
                         .Select(x => new StructMember
                         {
                             Type = Map(type.GetMemberTypeByIndex(x), MemberSize(type, size.Value, x)),
@@ -232,7 +237,7 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
             throw new InvalidOperationException($"Could not load type {type.Description.Name}");
         }
 
-        private int MemberSize(Vortice.Direct3D12.Shader.ID3D12ShaderReflectionType type, int parentSize, int memberIndex)
+        private uint MemberSize(Vortice.Direct3D12.Shader.ID3D12ShaderReflectionType type, uint parentSize, uint memberIndex)
         {
             if (type.Description.MemberCount == memberIndex + 1)
             {
@@ -302,12 +307,12 @@ void ClosestHit(inout RadiancePayload payload, TriangleAttributes attrib) {{
 
     public class BoundInput
     {
-        public required int RegisterValue { get; init; }
-        public required int RegisterSpace { get; init; }
+        public required uint RegisterValue { get; init; }
+        public required uint RegisterSpace { get; init; }
         public required BindType BindType { get; init; }
         public required IHlslType? Type { get; init; }
         public required string Name { get; init; }
-        public required int ItemSize { get; init; }
+        public required uint ItemSize { get; init; }
     }
 
     public enum BindType

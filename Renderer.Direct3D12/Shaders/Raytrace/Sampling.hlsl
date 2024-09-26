@@ -10,7 +10,6 @@ struct MonteCarloSample
 {
     Direction direction;
     bool isNextEventEstimation: 1;
-    bool isDistanceIndependent: 1;
     bool isValid: 1;
 };
 
@@ -31,7 +30,6 @@ MonteCarloSample cosineHemisphere(inout uint seed, float3 normal)
     MonteCarloSample sample = newSample();
     sample.direction = cartesianToDirection(rotateNormal(normal, weighted));
     sample.isNextEventEstimation = false;
-    sample.isDistanceIndependent = false;
     return sample;
 }
 
@@ -46,7 +44,6 @@ MonteCarloSample cone(inout uint seed, float3 direction, float angle)
     MonteCarloSample sample = newSample();
     sample.direction = cartesianToDirection(rotateNormal(direction, weighted));
     sample.isNextEventEstimation = false;
-    sample.isDistanceIndependent = false;
     return sample;
 }
 
@@ -54,7 +51,6 @@ MonteCarloSample zeroSample()
 {
     MonteCarloSample sample;
     sample.isValid = false;
-    sample.isDistanceIndependent = false;
     sample.direction = zeroDirection();
     sample.isNextEventEstimation = false;
     return sample;
@@ -118,7 +114,6 @@ MonteCarloSample sampleLight(LightSource light, inout uint seed, float3 origin, 
     
     MonteCarloSample sample = sampleSphereLight(light, seed, origin, normal);
     sample.isNextEventEstimation = true;
-    sample.isDistanceIndependent = light.DistanceIndependent;
     return sample;
 }
 
@@ -167,14 +162,11 @@ float neePdf(inout LightSource lights[numLights], float3 origin, float3 sampleDi
             continue;
     
         float angle = asin(ratio);
-        float cosTheta = dot(sampleDirection, direction);
+        float cosTheta = dot(sampleDirection, normalize(direction));
         float targetAngle = acos(cosTheta);
         
         if (targetAngle > angle || cosTheta < 0)
             continue;
-        
-        if (light.DistanceIndependent)
-            angle = (PI / 2);
         
         total += light.Power * (1.0f / (2.0f * PI * (1.0f - cos(angle))));
     }
@@ -195,16 +187,15 @@ void preweightSamples(inout PreweightedMonteCarloSample result[numSamples], inou
         
         // If we have no samples, we have no valid light. This is probably uniform, so this hot-path will
         // probably actually be hot.
-        float neeWeight = neeSamples == 0 ? 0 : neePdf(lights, origin, direction);
+        float neeWeight = neeSamples == 0 ? 0 : (neePdf(lights, origin, direction) * brdfPdf(normal, direction));
         float brdfWeight = brdfPdf(normal, direction);
         
         int thisDistributionSamples = sample.isNextEventEstimation ? neeSamples : brdfSamples;
         float thisDistributionPdf = sample.isNextEventEstimation ? neeWeight : brdfWeight;
-        float distanceBias = sample.isNextEventEstimation && sample.isDistanceIndependent ? 4 : 1;
         
         PreweightedMonteCarloSample preweighted;
         preweighted.direction = sample.direction;
-        preweighted.weight = distanceBias * thisDistributionSamples * thisDistributionPdf * dot(normal, direction) / (PI * (pow2(neeSamples * neeWeight) + pow2(brdfSamples * brdfWeight)));
+        preweighted.weight = thisDistributionSamples * thisDistributionPdf * dot(normal, direction) / (PI * (pow2(neeSamples * neeWeight) + pow2(brdfSamples * brdfWeight)));
         result[i] = preweighted;
     }
 }

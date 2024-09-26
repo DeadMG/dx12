@@ -19,7 +19,7 @@
 
     public class StructHlslType : IHlslType
     {
-        public required int Size { get; init; }
+        public required uint Size { get; init; }
         public required string Name { get; init; }
         public required StructMember[] Members { get; init; }
     }
@@ -27,14 +27,14 @@
     public class StructMember
     {
         public required string Name { get; init; }
-        public required int Offset { get; init; }
+        public required uint Offset { get; init; }
         public required IHlslType Type { get; init; }
     }
 
     public class VectorHlslType : IHlslType
     {
         public required IHlslType Underlying { get; init; }
-        public required int Elements { get; init; }
+        public required uint Elements { get; init; }
 
         public string Name => $"{Underlying.Name}x{Elements}";
     }
@@ -42,8 +42,8 @@
     public class MatrixHlslType : IHlslType
     {
         public required IHlslType Underlying { get; init; }
-        public required int Rows { get; init; }
-        public required int Columns { get; init; }
+        public required uint Rows { get; init; }
+        public required uint Columns { get; init; }
         public string Name => $"{Underlying.Name}x{Rows}x{Columns}";
     }
 

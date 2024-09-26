@@ -51,17 +51,10 @@ bool normalizePower(inout LightSource lights[numLights])
     return true;
 }
 
-float distanceFactor(float3 origin, float3 position, bool distanceIndependent)
+float distanceFactor(float3 origin, float3 position)
 {
     float3 direction = position - origin;
-    float l = length(direction);
-    
-    if (!distanceIndependent)
-    {
-        return l * l;
-    }
-    
-    return 1;
+    return pow2(length(direction));
 }
 
 LightSource zeroLight()
@@ -93,7 +86,7 @@ bool prepareLights(inout LightSource lights[numLights], StructuredBuffer<LightSo
     for (int i = 0; i < lightCount; i++)
     {
         LightSource light = allLights[i];
-        light.Power = distanceFactor(origin, light.Position, light.DistanceIndependent);
+        light.Power = distanceFactor(origin, light.Position);
         light.Power = max(light.Power * dot(normal, light.Position - origin), 0);
         addLight(light, lights);
     }

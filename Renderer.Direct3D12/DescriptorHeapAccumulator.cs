@@ -5,12 +5,12 @@ namespace Renderer.Direct3D12
     internal class DescriptorHeapAccumulator : IDisposable
     {
         private readonly DisposeTracker disposeTracker = new DisposeTracker();
-        private readonly Vortice.Direct3D12.ID3D12Device5 device;
+        private readonly Vortice.Direct3D12.ID3D12Device10 device;
 
         private readonly BufferHeap cbvUavSrvHeap;
         private readonly RenderTargetHeap renderTargetHeap;
 
-        public DescriptorHeapAccumulator(Vortice.Direct3D12.ID3D12Device5 device)
+        public DescriptorHeapAccumulator(Vortice.Direct3D12.ID3D12Device10 device)
         {
             this.device = device;
 
@@ -31,14 +31,14 @@ namespace Renderer.Direct3D12
             }));
         }
 
-        public uint AddStructuredBuffer(StructuredBuffer buffer) =>
+        public uint AddStructuredBuffer(BufferView buffer) =>
             cbvUavSrvHeap.AddStructuredBuffer(buffer).Index;
 
         public uint AddUAV(Vortice.Direct3D12.ID3D12Resource buffer, Vortice.Direct3D12.UnorderedAccessViewDescription desc) =>
             cbvUavSrvHeap.AddUAV(buffer, desc).Index;
 
-        public uint AddRaytracingStructure(Vortice.Direct3D12.ID3D12Resource resource) =>
-            cbvUavSrvHeap.AddRaytracingStructure(resource).Index;
+        public TLASReservation ReserveRaytracingStructure() =>
+            cbvUavSrvHeap.ReserveRaytracingStructure();
 
         public Vortice.Direct3D12.CpuDescriptorHandle AddRenderTargetView(Vortice.Direct3D12.ID3D12Resource renderTarget) =>
             renderTargetHeap.AddRenderTargetView(renderTarget).Handle;
@@ -63,12 +63,12 @@ namespace Renderer.Direct3D12
         {
             private readonly DisposeTracker disposeTracker = new DisposeTracker();
             private readonly Vortice.Direct3D12.ID3D12DescriptorHeap heap;
-            private readonly int increment;
-            protected readonly Vortice.Direct3D12.ID3D12Device5 device;
+            private readonly uint increment;
+            protected readonly Vortice.Direct3D12.ID3D12Device10 device;
 
             private uint start;
 
-            public DescriptorHeapHolder(string name, Vortice.Direct3D12.ID3D12Device5 device, Vortice.Direct3D12.DescriptorHeapDescription desc)
+            public DescriptorHeapHolder(string name, Vortice.Direct3D12.ID3D12Device10 device, Vortice.Direct3D12.DescriptorHeapDescription desc)
             {
                 this.device = device;
 
@@ -103,36 +103,48 @@ namespace Renderer.Direct3D12
 
         private class BufferHeap : DescriptorHeapHolder
         {
-            private readonly Dictionary<Vortice.Direct3D12.ID3D12Resource, DescriptorHeapSlot> raytracingStructures = new Dictionary<Vortice.Direct3D12.ID3D12Resource, DescriptorHeapSlot>();
             private readonly Dictionary<Vortice.Direct3D12.ID3D12Resource, DescriptorHeapSlot> uavs = new Dictionary<Vortice.Direct3D12.ID3D12Resource, DescriptorHeapSlot>();
-            private readonly Dictionary<StructuredBuffer, DescriptorHeapSlot> structuredBuffers = new Dictionary<StructuredBuffer, DescriptorHeapSlot>();
+            private readonly Dictionary<BufferView, DescriptorHeapSlot> structuredBuffers = new Dictionary<BufferView, DescriptorHeapSlot>();
 
-            public BufferHeap(Vortice.Direct3D12.ID3D12Device5 device, Vortice.Direct3D12.DescriptorHeapDescription desc) : base("Accumulator CBV/UAV/SRV heap", device, desc)
+            public BufferHeap(Vortice.Direct3D12.ID3D12Device10 device, Vortice.Direct3D12.DescriptorHeapDescription desc) : base("Accumulator CBV/UAV/SRV heap", device, desc)
             {
             }
 
             public override void Reset()
             {
                 base.Reset();
-                raytracingStructures.Clear();
                 uavs.Clear();
                 structuredBuffers.Clear();
             }
 
-            public DescriptorHeapSlot AddStructuredBuffer(StructuredBuffer buffer)
+            public DescriptorHeapSlot AddStructuredBuffer(BufferView buffer)
             {
                 if (structuredBuffers.ContainsKey(buffer)) return structuredBuffers[buffer];
 
                 var slot = GetSlot();
 
-                device.CreateShaderResourceView(buffer.Buffer,
-                    new Vortice.Direct3D12.ShaderResourceViewDescription
-                    {
-                        Buffer = buffer.SRV,
-                        ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.Buffer,
-                        Shader4ComponentMapping = Vortice.Direct3D12.ShaderComponentMapping.Default,
-                    },
-                    slot.Handle);
+                if (buffer.NumElements == 0)
+                {
+                    device.CreateShaderResourceView(null,
+                        new Vortice.Direct3D12.ShaderResourceViewDescription
+                        {
+                            Buffer = buffer.SRV,
+                            ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.Buffer,
+                            Shader4ComponentMapping = Vortice.Direct3D12.ShaderComponentMapping.Default,
+                        },
+                        slot.Handle);
+                }
+                else
+                {
+                    device.CreateShaderResourceView(buffer.Resource,
+                        new Vortice.Direct3D12.ShaderResourceViewDescription
+                        {
+                            Buffer = buffer.SRV,
+                            ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.Buffer,
+                            Shader4ComponentMapping = Vortice.Direct3D12.ShaderComponentMapping.Default,
+                        },
+                        slot.Handle);
+                }
 
                 structuredBuffers[buffer] = slot;
                 return slot;
@@ -151,28 +163,9 @@ namespace Renderer.Direct3D12
                 return slot;
             }
 
-            public DescriptorHeapSlot AddRaytracingStructure(Vortice.Direct3D12.ID3D12Resource resource)
+            public TLASReservation ReserveRaytracingStructure()
             {
-                if (raytracingStructures.ContainsKey(resource)) return raytracingStructures[resource];
-
-                var slot = GetSlot();
-
-                device.CreateShaderResourceView(null,
-                    new Vortice.Direct3D12.ShaderResourceViewDescription
-                    {
-                        Format = Vortice.DXGI.Format.Unknown,
-                        ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.RaytracingAccelerationStructure,
-                        Shader4ComponentMapping = Vortice.Direct3D12.ShaderComponentMapping.Default,
-                        RaytracingAccelerationStructure = new Vortice.Direct3D12.RaytracingAccelerationStructureShaderResourceView
-                        {
-                            Location = resource.GPUVirtualAddress,
-                        }
-                    },
-                    slot.Handle);
-
-                raytracingStructures[resource] = slot;
-
-                return slot;
+                return new TLASReservation(GetSlot(), device);
             }
         }
 
@@ -180,7 +173,7 @@ namespace Renderer.Direct3D12
         {
             private readonly Dictionary<Vortice.Direct3D12.ID3D12Resource, DescriptorHeapSlot> renderTargets = new Dictionary<Vortice.Direct3D12.ID3D12Resource, DescriptorHeapSlot>();
 
-            public RenderTargetHeap(Vortice.Direct3D12.ID3D12Device5 device, Vortice.Direct3D12.DescriptorHeapDescription desc) : base("Accumulator Render target heap", device, desc)
+            public RenderTargetHeap(Vortice.Direct3D12.ID3D12Device10 device, Vortice.Direct3D12.DescriptorHeapDescription desc) : base("Accumulator Render target heap", device, desc)
             {
             }
 
@@ -201,10 +194,39 @@ namespace Renderer.Direct3D12
             }
         }
 
-        private struct DescriptorHeapSlot
+        public struct DescriptorHeapSlot
         {
             public uint Index;
             public Vortice.Direct3D12.CpuDescriptorHandle Handle;
+        }
+
+        public class TLASReservation
+        {
+            private readonly DescriptorHeapSlot slot;
+            private readonly Vortice.Direct3D12.ID3D12Device10 device;
+
+            public TLASReservation(DescriptorHeapSlot slot, Vortice.Direct3D12.ID3D12Device10 device)
+            {
+                this.slot = slot;
+                this.device = device;
+            }
+
+            public uint Offset => slot.Index;
+
+            public void Commit(BufferView TLAS)
+            {
+                device.CreateShaderResourceView(null,
+                    new Vortice.Direct3D12.ShaderResourceViewDescription
+                    {
+                        ViewDimension = Vortice.Direct3D12.ShaderResourceViewDimension.RaytracingAccelerationStructure,
+                        Shader4ComponentMapping = Vortice.Direct3D12.ShaderComponentMapping.Default,
+                        RaytracingAccelerationStructure = new Vortice.Direct3D12.RaytracingAccelerationStructureShaderResourceView
+                        {
+                            Location = TLAS.GPUVirtualAddress,
+                        }
+                    },
+                    slot.Handle);
+            }
         }
     }
 }

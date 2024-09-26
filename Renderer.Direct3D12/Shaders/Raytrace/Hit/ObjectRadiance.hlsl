@@ -19,6 +19,7 @@ struct ObjectRadianceParameters
     uint DataIndex;
     uint IlluminanceTextureIndex;
     uint AtrousDataTextureIndex;
+    uint PreviousIlluminanceTextureIndex;
 };
 
 ConstantBuffer<ObjectRadianceParameters> Settings : register(b0);
@@ -146,7 +147,16 @@ void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes 
         
         float3 incomingLight = monteCarlo(ResourceDescriptorHeap[Settings.TLASIndex], ResourceDescriptorHeap[Settings.LightsIndex], depth, normal, startPosition, seed);
         RWTexture2D<float4> illuminanceTexture = ResourceDescriptorHeap[Settings.IlluminanceTextureIndex];
-        illuminanceTexture[index] = float4(incomingLight, 1);
+        
+        if (Settings.PreviousIlluminanceTextureIndex == 0xFFFFFFFF)
+        {
+            illuminanceTexture[index] = float4(incomingLight, 1);
+        }
+        else
+        {
+            RWTexture2D<float4> previousIlluminanceTexture = ResourceDescriptorHeap[Settings.PreviousIlluminanceTextureIndex];
+            illuminanceTexture[index] = lerp(previousIlluminanceTexture[index], float4(incomingLight, 1), 0.2);            
+        }
     }
     else
     {

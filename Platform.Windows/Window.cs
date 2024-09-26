@@ -88,7 +88,7 @@ namespace Platform.Windows
                     int width = rect.right - rect.left;
                     int height = rect.bottom - rect.top;
 
-                    var newSize = new ScreenSize { Width = Math.Max(width, 1), Height = Math.Max(height, 1) };
+                    var newSize = new ScreenSize { Width = (ushort)Math.Max(width, 1), Height = (ushort)Math.Max(height, 1) };
 
                     currentSize = Task.FromResult(newSize);
                     sizeTcs.TrySetResult(newSize);

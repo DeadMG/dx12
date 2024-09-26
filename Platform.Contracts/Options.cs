@@ -6,6 +6,5 @@
         public bool DXGIBreak { get; set; }
         public bool D3DBreak { get; set; }
         public bool PIX { get; set; }
-        public bool D3D11on12 { get; set; }
     }
 }

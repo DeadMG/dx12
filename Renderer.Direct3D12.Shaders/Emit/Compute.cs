@@ -17,7 +17,7 @@ namespace Renderer.Direct3D12.{String.Join(".", path)} {{
         private readonly Vortice.Direct3D12.ID3D12PipelineState pipelineState;
         private readonly Vortice.Direct3D12.ID3D12RootSignature signature;
 
-        public {name}(Vortice.Direct3D12.ID3D12Device5 device) 
+        public {name}(Vortice.Direct3D12.ID3D12Device10 device) 
         {{
             var parameters = new List<Vortice.Direct3D12.RootParameter1>();
             {ConstantParameter(constant, typeLookup)}
@@ -48,7 +48,7 @@ namespace Renderer.Direct3D12.{String.Join(".", path)} {{
         private string ConstantParameter(BoundInput? constant, Dictionary<string, string> typeLookup)
         {
             if (constant == null) return "// no constant parameter";
-            return $"parameters.Add(new Vortice.Direct3D12.RootParameter1(new Vortice.Direct3D12.RootConstants(0, 0, Marshal.SizeOf<Shaders.Data.{typeLookup[constant.Type.Name]}>() / 4), Vortice.Direct3D12.ShaderVisibility.All));";
+            return $"parameters.Add(new Vortice.Direct3D12.RootParameter1(new Vortice.Direct3D12.RootConstants(0, 0, (uint)Marshal.SizeOf<Shaders.Data.{typeLookup[constant.Type.Name]}>() / 4), Vortice.Direct3D12.ShaderVisibility.All));";
         }
     }
 }

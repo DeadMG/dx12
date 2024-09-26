@@ -31,7 +31,6 @@ struct LightSource
     float Power;
     float3 Position;
     float Size;
-    bool DistanceIndependent;
 };
 
 struct RaytracingOutputData

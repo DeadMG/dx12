@@ -48,7 +48,7 @@ namespace Application
                         new Triangle { Vertices = [0, 2, 3], MaterialIndex = 2 },
                         new Triangle { Vertices = [6, 5, 4], MaterialIndex = 3 },
                         new Triangle { Vertices = [7, 8, 9], MaterialIndex = 4 },
-                    ], 
+                    ],
                     [
                         new Material
                         {
@@ -80,8 +80,7 @@ namespace Application
                             EmissionColour = new RGB(0, 0.5f, 1),
                             Colour = new RGB(0, 0.5f, 1)
                         },
-                    ]
-                ),
+                    ]),
                 Acceleration = 3,
                 MaxSpeed = 100,
                 TurnRate = (float)Math.PI / 2,
@@ -96,7 +95,6 @@ namespace Application
                         Geometry = new SphereGeometry 
                         {
                             Material = new Material { EmissionStrength = 1f, EmissionColour = RGB.From255(242, 241, 247), Colour = RGB.From255(153, 170, 240) },
-                            DistanceIndependentEmission = true,
                         },
                         WorldMatrix = Matrix4x4.CreateScale(20) * Matrix4x4.CreateTranslation(new Vector3(-40, 0, 40)),
                         Name = "Blue sun",
@@ -139,7 +137,6 @@ namespace Application
 
             var standardOptions = new Options
             {
-                D3D11on12 = true,
                 D3DBreak = true,
                 D3DDebugLayer = true,
                 DXGIBreak = true,

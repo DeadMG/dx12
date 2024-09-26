@@ -1,72 +1,53 @@
-﻿
-using System.Numerics;
+﻿using System.Numerics;
 using System.Runtime.InteropServices;
-using Util;
 
 namespace Renderer.Direct3D12
 {
-    internal class PrimitiveBlasCache : IDisposable
+    internal class PrimitiveBlasCache
     {
-        private readonly DisposeTracker disposeTracker = new DisposeTracker();
         private PrimitiveBlas? cacheData;
 
-        public PrimitiveBlas Get(PooledCommandList list)
+        public PrimitiveBlas Get(FrameResources resources)
         {
             if (cacheData != null) return cacheData;
 
-            var sphereAabb = list.CreateUploadBuffer([new PrimitiveAabb { Start = new Vector3(-1, -1, -1), End = new Vector3(1, 1, 1) }]);
+            var sphereAabb = resources.TransferToUpload([new PrimitiveAabb { Start = new Vector3(-1, -1, -1), End = new Vector3(1, 1, 1) }], 16);
 
-            var asDesc = new Vortice.Direct3D12.BuildRaytracingAccelerationStructureInputs
+            cacheData = new PrimitiveBlas 
             {
-                DescriptorsCount = 1,
-                GeometryDescriptions =
-                [
-                    new Vortice.Direct3D12.RaytracingGeometryDescription
-                    {
-                        AABBs = new Vortice.Direct3D12.RaytracingGeometryAabbsDescription
+                SphereBlas = resources.BuildAS(resources.Permanent.BLASPool, new Vortice.Direct3D12.BuildRaytracingAccelerationStructureInputs
+                {
+                    DescriptorsCount = 1,
+                    GeometryDescriptions =
+                    [
+                        new Vortice.Direct3D12.RaytracingGeometryDescription
                         {
-                            AABBCount = 1,
-                            AABBs = new Vortice.Direct3D12.GpuVirtualAddressAndStride 
+                            AABBs = new Vortice.Direct3D12.RaytracingGeometryAabbsDescription
                             {
-                                StartAddress = sphereAabb.Buffer.GPUVirtualAddress,
-                                StrideInBytes = (ulong)Marshal.SizeOf<PrimitiveAabb>()
+                                AABBCount = 1,
+                                AABBs = new Vortice.Direct3D12.GpuVirtualAddressAndStride
+                                {
+                                    StartAddress = sphereAabb.GPUVirtualAddress,
+                                    StrideInBytes = (ulong)Marshal.SizeOf<PrimitiveAabb>()
+                                },
                             },
-                        },
-                        Flags = Vortice.Direct3D12.RaytracingGeometryFlags.Opaque,
-                        Type = Vortice.Direct3D12.RaytracingGeometryType.ProceduralPrimitiveAabbs
-                    }
-                ],
-                InstanceDescriptions = 0,
-                Flags = Vortice.Direct3D12.RaytracingAccelerationStructureBuildFlags.None,
-                Layout = Vortice.Direct3D12.ElementsLayout.Array,
-                Type = Vortice.Direct3D12.RaytracingAccelerationStructureType.BottomLevel
+                            Flags = Vortice.Direct3D12.RaytracingGeometryFlags.Opaque,
+                            Type = Vortice.Direct3D12.RaytracingGeometryType.ProceduralPrimitiveAabbs
+                        }
+                    ],
+                    InstanceDescriptions = 0,
+                    Flags = Vortice.Direct3D12.RaytracingAccelerationStructureBuildFlags.PreferFastTrace,
+                    Layout = Vortice.Direct3D12.ElementsLayout.Array,
+                    Type = Vortice.Direct3D12.RaytracingAccelerationStructureType.BottomLevel
+                })
             };
 
-            var prebuild = list.Pool.Device.GetRaytracingAccelerationStructurePrebuildInfo(asDesc);
-            var scratch = list.DisposeAfterExecution(list.Pool.Device.CreateStaticBuffer(prebuild.ScratchDataSizeInBytes.Align(256), Vortice.Direct3D12.ResourceStates.Common, Vortice.Direct3D12.ResourceFlags.AllowUnorderedAccess).Name($"Sphere BLAS scratch"));
-            var result = disposeTracker.Track(list.Pool.Device.CreateStaticBuffer(prebuild.ResultDataMaxSizeInBytes.Align(256), Vortice.Direct3D12.ResourceStates.RaytracingAccelerationStructure, Vortice.Direct3D12.ResourceFlags.AllowUnorderedAccess).Name($"Sphere BLAS"));
-
-            list.List.BuildRaytracingAccelerationStructure(new Vortice.Direct3D12.BuildRaytracingAccelerationStructureDescription
-            {
-                DestinationAccelerationStructureData = result.GPUVirtualAddress,
-                ScratchAccelerationStructureData = scratch.GPUVirtualAddress,
-                Inputs = asDesc,
-                SourceAccelerationStructureData = 0,
-            });
-
-            list.List.ResourceBarrierUnorderedAccessView(result);
-
-            cacheData = new PrimitiveBlas { SphereBlas = result };
             return cacheData;
-        }
-
-        public void Dispose()
-        {
-            disposeTracker.Dispose();
         }
     }
 
-    [StructLayout(LayoutKind.Explicit)]
+    // Must be aligned to 16 bytes
+    [StructLayout(LayoutKind.Explicit, Size = 32)]
     internal struct PrimitiveAabb
     {
         [FieldOffset(0)]
@@ -78,6 +59,6 @@ namespace Renderer.Direct3D12
 
     internal class PrimitiveBlas
     {
-        public required Vortice.Direct3D12.ID3D12Resource SphereBlas { get; init; }
+        public required BufferView SphereBlas { get; init; }
     }
 }
