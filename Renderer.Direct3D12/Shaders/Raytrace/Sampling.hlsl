@@ -138,7 +138,7 @@ MonteCarloSample sampleLights(inout LightSource lights[numLights], inout uint se
     return sampleLight(lights[numLights - 1], seed, origin, normal);
 }
 
-float brdfPdf(float3 normal, float3 direction)
+float cosinePdf(float3 normal, float3 direction)
 {    
     return dot(normal, direction) / PI;
 }
@@ -177,7 +177,7 @@ float neePdf(inout LightSource lights[numLights], float3 origin, float3 sampleDi
 void preweightSamples(inout PreweightedMonteCarloSample result[numSamples], inout MonteCarloSample samples[numSamples], inout LightSource lights[numLights], float3 origin, float3 normal)
 {    
     int neeSamples = samplesOfDistribution(samples, true);
-    int brdfSamples = numSamples - neeSamples;
+    int cosineSamples = numSamples - neeSamples;
     
     for (int i = 0; i < numSamples; i++)
     {
@@ -187,15 +187,16 @@ void preweightSamples(inout PreweightedMonteCarloSample result[numSamples], inou
         
         // If we have no samples, we have no valid light. This is probably uniform, so this hot-path will
         // probably actually be hot.
-        float neeWeight = neeSamples == 0 ? 0 : (neePdf(lights, origin, direction) * brdfPdf(normal, direction));
-        float brdfWeight = brdfPdf(normal, direction);
+        float neeWeight = neeSamples == 0 ? 0 : neePdf(lights, origin, direction);
+        float cosineWeight = cosinePdf(normal, direction);
         
-        int thisDistributionSamples = sample.isNextEventEstimation ? neeSamples : brdfSamples;
-        float thisDistributionPdf = sample.isNextEventEstimation ? neeWeight : brdfWeight;
+        int thisDistributionSamples = sample.isNextEventEstimation ? neeSamples : cosineSamples;
+        float thisDistributionPdf = sample.isNextEventEstimation ? neeWeight : cosineWeight;
         
+        // See pathtracing.md for derivation of this weight formula
         PreweightedMonteCarloSample preweighted;
         preweighted.direction = sample.direction;
-        preweighted.weight = thisDistributionSamples * thisDistributionPdf * dot(normal, direction) / (PI * (pow2(neeSamples * neeWeight) + pow2(brdfSamples * brdfWeight)));
+        preweighted.weight = thisDistributionSamples * thisDistributionPdf * dot(normal, direction) / (PI * (pow2(neeSamples * neeWeight) + pow2(cosineSamples * cosineWeight)));
         result[i] = preweighted;
     }
 }
