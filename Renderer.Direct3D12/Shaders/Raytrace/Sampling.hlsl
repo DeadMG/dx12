@@ -158,7 +158,7 @@ float neePdf(inout LightSource lights[numLights], float3 origin, float3 sampleDi
         float l = length(direction);
     
         float ratio = light.Size / l;
-        if (ratio > 1 || ratio < -1)
+        if (ratio > 1)
             continue;
     
         float angle = asin(ratio);
@@ -168,7 +168,7 @@ float neePdf(inout LightSource lights[numLights], float3 origin, float3 sampleDi
         if (targetAngle > angle || cosTheta < 0)
             continue;
         
-        total += light.Power * (1.0f / (2.0f * PI * (1.0f - cos(angle))));
+        total += light.Power * (angle / PI);
     }
     
     return total;
