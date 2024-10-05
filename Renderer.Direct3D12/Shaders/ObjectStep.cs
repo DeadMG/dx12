@@ -1,5 +1,4 @@
 ﻿using Data.Mesh;
-using Renderer.Direct3D12;
 using Simulation;
 using System.Numerics;
 using System.Security.Cryptography;
