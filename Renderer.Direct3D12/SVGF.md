@@ -25,3 +25,4 @@ Finally:
     * Multiply in diffuse colour to get the final colour and present that.
 
 https://github.com/jacquespillet/SVGF/blob/Part_13/src/Filter.cuh
+https://github.com/alipbcs/ZetaRay
