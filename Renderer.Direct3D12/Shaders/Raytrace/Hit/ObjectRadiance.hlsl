@@ -10,7 +10,6 @@ struct ObjectRadianceParameters
 {
     uint MaxBounces;
     float AmbientLight;
-    float4x4 WorldMatrix;
     
     uint Seed;
     uint TrianglesIndex;
@@ -24,25 +23,9 @@ struct ObjectRadianceParameters
 
 ConstantBuffer<ObjectRadianceParameters> Settings : register(b0);
 
-uint bufferIndex(uint2 index)
-{
-    uint2 dims = DispatchRaysDimensions().xy;
-    
-    uint x = clamp(index.x, 0, dims.x);
-    uint y = clamp(index.y, 0, dims.y);
-    
-    return x + (dims.x * y);
-}
-
 float3 alignWith(float3 normal, float3 direction)
 {
     return direction * sign(dot(normal, direction));
-}
-
-float3 normalMul(float3 objectNormal, float4x4 mat)
-{
-    float4 result = mul(float4(objectNormal, 0), mat);
-    return normalize(result.xyz);
 }
 
 float3 performSample(RaytracingAccelerationStructure SceneBVH, float3 direction, float3 startPosition, uint depth)
@@ -126,7 +109,8 @@ void ObjectRadianceClosestHit(inout RadiancePayload payload, TriangleAttributes 
     
     Triangle t = LoadTriangle(PrimitiveIndex());
     float3 startPosition = WorldRayOrigin() + (RayTCurrent() * WorldRayDirection());
-    float3 normal = alignWith(-WorldRayDirection(), normalMul(t.Normal, Settings.WorldMatrix));
+    
+    float3 normal = alignWith(-WorldRayDirection(), normalize(mul(t.Normal, ObjectToWorld4x3())));
     
     uint2 index = DispatchRaysIndex().xy;
     uint seed = Settings.Seed * pow2(index.x + 1u) * pow2(index.y + 1u);

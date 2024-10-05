@@ -94,7 +94,7 @@ namespace Renderer.Direct3D12.Shaders
 
             if (geometry is Mesh mesh)
             {
-                return PrepareMeshHitGroup(shaderTable, lightIndex, tlasIndex, data, atrous, illuminance, previousIlluminance, worldMatrix, ambientLight, mesh, resources);
+                return PrepareMeshHitGroup(shaderTable, lightIndex, tlasIndex, data, atrous, illuminance, previousIlluminance, ambientLight, mesh, resources);
             }
 
             throw new InvalidOperationException();
@@ -119,7 +119,7 @@ namespace Renderer.Direct3D12.Shaders
             return shaderTable.AddHit("SphereRadiance", parameters);
         }
 
-        private int PrepareMeshHitGroup(ShaderBindingTable shaderTable, uint lightIndex, uint tlasIndex, ResourcePool.ResourceLifetime<GBufferKey> data, ResourcePool.ResourceLifetime<AtrousDataTextureKey> atrous, ResourcePool.ResourceLifetime<IlluminanceTextureKey> illuminance, ResourcePool.ResourceLifetime<IlluminanceTextureKey>? previousIlluminance, Matrix4x4 worldMatrix, float ambientLight, Mesh mesh, FrameResources resources)
+        private int PrepareMeshHitGroup(ShaderBindingTable shaderTable, uint lightIndex, uint tlasIndex, ResourcePool.ResourceLifetime<GBufferKey> data, ResourcePool.ResourceLifetime<AtrousDataTextureKey> atrous, ResourcePool.ResourceLifetime<IlluminanceTextureKey> illuminance, ResourcePool.ResourceLifetime<IlluminanceTextureKey>? previousIlluminance, float ambientLight, Mesh mesh, FrameResources resources)
         {
             var meshData = resources.Permanent.MeshResourceCache.Load(mesh, resources);
 
@@ -129,7 +129,6 @@ namespace Renderer.Direct3D12.Shaders
                 MaxBounces = maxRays,
                 Seed = rng.GetRandom<uint>(),
                 LightsIndex = lightIndex,
-                WorldMatrix = Matrix4x4.Transpose(worldMatrix),
                 PreviousIlluminanceTextureIndex = previousIlluminance == null ? 0xFFFFFFFF : resources.HeapAccumulator.AddUAV(previousIlluminance.Resource, previousIlluminance.Key.UAV),
                 TLASIndex = tlasIndex,
                 TrianglesIndex = resources.HeapAccumulator.AddStructuredBuffer(meshData.Triangles),
