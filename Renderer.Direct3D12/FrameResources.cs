@@ -29,6 +29,7 @@ namespace Renderer.Direct3D12
             uploadBufferPool.Reset();
             frameTlasPool.Reset();
             frameUnorderedAccessPool.Reset();
+            Permanent.CommandList.Reset(DirectCommandAllocator);
         }
 
         public PermanentResources Permanent => resources;
@@ -36,7 +37,6 @@ namespace Renderer.Direct3D12
         public Vortice.Direct3D12.ID3D12CommandAllocator DirectCommandAllocator => directCommandAllocator;
         public FrameUploadBufferPool UploadBufferPool => uploadBufferPool;
         public FrameTLASPool FrameTLASPool => frameTlasPool;
-        public FrameUnorderedAccessPool FrameUnorderedAccessPool => frameUnorderedAccessPool;
 
         public BufferView TransferToUpload<T>(T[] items, uint? alignment = null)
             where T : unmanaged
@@ -62,7 +62,7 @@ namespace Renderer.Direct3D12
             where T : unmanaged
         {
             var buffer = TransferToUpload<T>(items, alignment);
-            var uaBuffer = FrameUnorderedAccessPool.AllocateFor(items, alignment);
+            var uaBuffer = frameUnorderedAccessPool.AllocateFor(items, alignment);
             Permanent.CommandList.CopyBufferRegion(uaBuffer.Resource, uaBuffer.StartOffset, buffer.Resource, buffer.StartOffset, buffer.Size);
             return uaBuffer;
         }
@@ -70,7 +70,7 @@ namespace Renderer.Direct3D12
         public BufferView BuildAS(RTASPool asPool, Vortice.Direct3D12.BuildRaytracingAccelerationStructureInputs asDesc)
         {
             var prebuild = Permanent.Device.GetRaytracingAccelerationStructurePrebuildInfo(asDesc);
-            var scratch = FrameUnorderedAccessPool.Allocate(256, (uint)prebuild.ScratchDataSizeInBytes, 1);
+            var scratch = frameUnorderedAccessPool.Allocate(256, (uint)prebuild.ScratchDataSizeInBytes, 1);
             var result = asPool.Allocate(256, (uint)prebuild.ResultDataMaxSizeInBytes, 1);
 
             Permanent.CommandList.BuildRaytracingAccelerationStructure(new Vortice.Direct3D12.BuildRaytracingAccelerationStructureDescription

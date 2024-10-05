@@ -140,7 +140,6 @@ namespace Renderer.Direct3D12
                     {
                         var currentBuffer = backBuffers.backBuffers[swapChain.CurrentBackBufferIndex];
                         var commandList = permanentResources.CommandList;
-                        commandList.Reset(frameLease.Resources.DirectCommandAllocator);
 
                         commandList.Barrier(new Vortice.Direct3D12.BarrierGroup([new Vortice.Direct3D12.TextureBarrier
                         {
