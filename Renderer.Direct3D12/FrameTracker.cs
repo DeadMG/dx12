@@ -33,12 +33,11 @@ namespace Renderer.Direct3D12
                 {
                     if (fence.CompletedValue >= next.FenceId)
                     {
-                        next.Resources.Reset();
-                        return next.Resources;
+                        return next.Resources.Reset();
                     }
                 }
 
-                return tracker.Track(new FrameResources(resources));
+                return tracker.Track(new FrameResources(resources).Reset());
             }
         }
 

@@ -22,7 +22,7 @@ namespace Renderer.Direct3D12
             uploadBufferPool = disposeTracker.Track(new FrameUploadBufferPool(Permanent.Device));
         }
 
-        public void Reset()
+        public FrameResources Reset()
         {
             HeapAccumulator.Reset();
             directCommandAllocator.Reset();
@@ -30,6 +30,7 @@ namespace Renderer.Direct3D12
             frameTlasPool.Reset();
             frameUnorderedAccessPool.Reset();
             Permanent.CommandList.Reset(DirectCommandAllocator);
+            return this;
         }
 
         public PermanentResources Permanent => resources;
